@@ -57,7 +57,7 @@ jobs:
           if [ "${{ github.event_name }}" = "pull_request" ]; then
             CMD="hosting:channel:deploy pr-${{ github.event.number }} --expires 7d"
           else
-            CMD="deploy --only hosting,firestore:rules"
+            CMD="deploy --only hosting"
           fi
           set -o pipefail
           if ! npx --yes firebase-tools@13 $CMD --project "$PROJECT_ID" --non-interactive 2>&1 | tee "$RUNNER_TEMP/deploy.log"; then
