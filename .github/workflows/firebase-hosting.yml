@@ -33,9 +33,16 @@ jobs:
         run: |
           if [ -z "$SA" ]; then echo "::error::Secret FIREBASE_SERVICE_ACCOUNT is missing or empty"; exit 1; fi
           printf '%s' "$SA" > "$RUNNER_TEMP/sa.json"
-          if ! node -e 'JSON.parse(require("fs").readFileSync(process.argv[1], "utf8"))' "$RUNNER_TEMP/sa.json"; then
-            echo "::error::FIREBASE_SERVICE_ACCOUNT is not valid JSON - paste the whole key file, from { to }"; exit 1
-          fi
+          # On a parse failure, report only the shape of the secret (never its contents).
+          if ! node -e '
+            const t = require("fs").readFileSync(process.argv[1], "utf8");
+            try { JSON.parse(t); } catch (e) {
+              const pos = +(/position (\d+)/.exec(e.message) || [])[1];
+              const before = isNaN(pos) ? "" : t.slice(0, pos);
+              const line = before.split("\n").length, keys = (t.match(/"[a-z_]+":/g) || []).length;
+              console.log(`::error::FIREBASE_SERVICE_ACCOUNT is not valid JSON (length ${t.length}, ${t.split("\n").length} lines, ${keys} keys, error at line ${line || "?"}, char code there ${isNaN(pos) ? "?" : t.charCodeAt(pos)}, has private_key: ${t.includes("\"private_key\"")}, BEGIN/END key markers: ${t.includes("BEGIN PRIVATE KEY")}/${t.includes("END PRIVATE KEY")})`);
+              process.exit(1);
+            }' "$RUNNER_TEMP/sa.json"; then exit 1; fi
           KEY_PROJECT=$(node -p 'JSON.parse(require("fs").readFileSync(process.argv[1], "utf8")).project_id' "$RUNNER_TEMP/sa.json")
           if [ "$KEY_PROJECT" != "$PROJECT_ID" ]; then
             echo "::error::Key is for project '$KEY_PROJECT' but deploying to '$PROJECT_ID'"; exit 1
