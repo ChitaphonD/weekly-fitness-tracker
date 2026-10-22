@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>body{margin:0;background:#f5f4f0;color:#161714;-webkit-font-smoothing:antialiased}a{color:oklch(0.6 0.17 50);text-decoration:none}a:hover{text-decoration:underline}</style>
+</helmet>
+<div style="max-width:880px;margin:0 auto;padding:48px 24px 96px;font-family:'IBM Plex Sans Thai',system-ui,sans-serif;display:flex;flex-direction:column;gap:40px">
+  <header style="display:flex;flex-direction:column;gap:10px">
+    <a href="Fitness Tracker.dc.html" style="font:500 13px 'IBM Plex Mono',monospace">← กลับไปที่ Prototype</a>
+    <h1 style="margin:0;font-size:34px;font-weight:700">Weekly Fitness Progress Tracker · Tech Spec</h1>
+    <p style="margin:0;color:#666a62;font-size:15px;line-height:1.7;max-width:640px;text-wrap:pretty">Stack ที่แนะนำ: Next.js (App Router) + PostgreSQL ผ่าน Prisma, เก็บรูปบน S3/Cloud Storage. หลักการสำคัญคือเก็บข้อมูลดิบระดับเซ็ต แล้วคำนวณสรุปรายสัปดาห์ด้วย SQL (หรือ materialized view) เพื่อให้กราฟดึงข้อมูลได้ในคำขอเดียว</p>
+  </header>
+
+  <section style="display:flex;flex-direction:column;gap:14px">
+    <h2 style="margin:0;font-size:22px">1. Data Schema (PostgreSQL)</h2>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:10px;font-size:13px;line-height:1.6">
+      <div style="background:#fff;border:1px solid rgba(0,0,0,.08);border-radius:12px;padding:14px"><b>users / goals</b><br><span style="color:#666a62">ข้อมูลกายภาพ + เป้าหมายหลักและตัวเลข</span></div>
+      <div style="background:#fff;border:1px solid rgba(0,0,0,.08);border-radius:12px;padding:14px"><b>exercises / routines</b><br><span style="color:#666a62">คลังท่าฝึก และ Quick Template</span></div>
+      <div style="background:#fff;border:1px solid rgba(0,0,0,.08);border-radius:12px;padding:14px"><b>workouts → workout_sets / cardio_logs</b><br><span style="color:#666a62">บันทึกรายวัน ระดับเซ็ต</span></div>
+      <div style="background:#fff;border:1px solid rgba(0,0,0,.08);border-radius:12px;padding:14px"><b>body_metrics / progress_photos</b><br><span style="color:#666a62">Check-in สัปดาห์ละครั้ง</span></div>
+    </div>
+<pre style="margin:0;background:#161714;color:#e9eae4;border-radius:14px;padding:20px;overflow-x:auto;font:13px/1.65 'IBM Plex Mono',monospace">CREATE TYPE goal_type AS ENUM ('lose_weight','build_muscle','endurance');
+CREATE TYPE sex_type  AS ENUM ('male','female','other');
+
+CREATE TABLE users (
+  id           uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  email        text UNIQUE NOT NULL,
+  height_cm    numeric(5,1),
+  birth_date   date,
+  sex          sex_type,
+  week_start   smallint DEFAULT 1,          -- 1 = Monday
+  created_at   timestamptz DEFAULT now()
+);
+
+CREATE TABLE goals (
+  id                uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id           uuid REFERENCES users(id) ON DELETE CASCADE,
+  type              goal_type NOT NULL,
+  target_weight_kg  numeric(5,1),
+  workouts_per_week smallint DEFAULT 4,
+  start_weight_kg   numeric(5,1),
+  active            boolean DEFAULT true,
+  created_at        timestamptz DEFAULT now()
+);
+
+CREATE TABLE exercises (
+  id           uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id      uuid REFERENCES users(id),   -- NULL = global library
+  name         text NOT NULL,
+  muscle_group text,
+  increment_kg numeric(4,2) DEFAULT 2.5      -- ใช้คำนวณ progressive overload
+);
+
+CREATE TABLE routines (
+  id      uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id uuid REFERENCES users(id) ON DELETE CASCADE,
+  name    text NOT NULL                       -- 'Chest Day', 'Leg Day'
+);
+CREATE TABLE routine_exercises (
+  routine_id   uuid REFERENCES routines(id) ON DELETE CASCADE,
+  exercise_id  uuid REFERENCES exercises(id),
+  position     smallint,
+  default_sets smallint DEFAULT 3,
+  default_reps smallint DEFAULT 8,
+  PRIMARY KEY (routine_id, exercise_id)
+);
+
+CREATE TABLE workouts (
+  id           uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id      uuid REFERENCES users(id) ON DELETE CASCADE,
+  routine_id   uuid REFERENCES routines(id),
+  kind         text CHECK (kind IN ('strength','cardio')),
+  performed_at timestamptz NOT NULL DEFAULT now(),
+  duration_min smallint,
+  calories     integer
+);
+
+CREATE TABLE workout_sets (
+  id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  workout_id  uuid REFERENCES workouts(id) ON DELETE CASCADE,
+  exercise_id uuid REFERENCES exercises(id),
+  set_no      smallint NOT NULL,
+  weight_kg   numeric(6,2) NOT NULL,
+  reps        smallint NOT NULL,
+  rpe         smallint CHECK (rpe BETWEEN 1 AND 10),
+  note        text
+);
+CREATE INDEX ON workout_sets (exercise_id);
+
+CREATE TABLE cardio_logs (
+  workout_id   uuid PRIMARY KEY REFERENCES workouts(id) ON DELETE CASCADE,
+  activity     text,                          -- run / bike / walk
+  distance_km  numeric(6,2),
+  duration_min numeric(6,1),
+  calories     integer
+);
+
+CREATE TABLE body_metrics (
+  id         uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id    uuid REFERENCES users(id) ON DELETE CASCADE,
+  week_start date NOT NULL,                   -- 1 แถวต่อสัปดาห์
+  weight_kg  numeric(5,1),
+  chest_cm   numeric(5,1), waist_cm numeric(5,1), hip_cm numeric(5,1),
+  arm_cm     numeric(5,1), thigh_cm numeric(5,1),
+  UNIQUE (user_id, week_start)
+);
+
+CREATE TABLE progress_photos (
+  id         uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id    uuid REFERENCES users(id) ON DELETE CASCADE,
+  week_start date NOT NULL,
+  pose       text DEFAULT 'front',            -- front / side / back
+  storage_key text NOT NULL,                  -- S3 object key
+  UNIQUE (user_id, week_start, pose)
+);</pre>
+  </section>
+
+  <section style="display:flex;flex-direction:column;gap:14px">
+    <h2 style="margin:0;font-size:22px">2. Component Structure</h2>
+<pre style="margin:0;background:#fff;border:1px solid rgba(0,0,0,.08);border-radius:14px;padding:20px;overflow-x:auto;font:13px/1.7 'IBM Plex Mono',monospace;color:#161714">&lt;AppShell theme&gt;                     // dark/light, bottom TabBar
+├─ DashboardPage  /
+│  ├─ GoalProgressCard              // start → current → target
+│  ├─ WeeklySummaryGrid             // workouts, volume, time, kcal + Δ vs last week
+│  ├─ VolumeBarChart                // 8 สัปดาห์
+│  ├─ MetricTrendChart              // chips: น้ำหนัก/อก/เอว/สะโพก/แขน/ขา
+│  ├─ StrengthProgressChart         // top set ต่อท่า ต่อสัปดาห์
+│  └─ WeekCompareTable              // W-1 vs W ทุกท่า
+├─ LogPage  /log
+│  ├─ SegmentedControl              // Weight Training | Cardio
+│  ├─ RoutinePicker                 // Quick Template
+│  ├─ ExerciseCard[]                // auto-populate จาก /previous
+│  │  ├─ OverloadHint               // "+2.5 kg จากสัปดาห์ก่อน"
+│  │  ├─ SetRow[]  (kg, reps, ✓)
+│  │  ├─ RpeSelector (1–10)
+│  │  └─ NoteInput
+│  ├─ ExercisePicker
+│  └─ CardioForm                    // km, min, kcal → pace
+├─ BodyPage  /body
+│  ├─ MeasurementForm               // placeholder = ค่าสัปดาห์ก่อน
+│  └─ PhotoCompare                  // slider | side-by-side, เลือกสัปดาห์ A/B
+└─ ProfilePage  /profile
+   ├─ PhysicalInfoForm
+   ├─ GoalSelector
+   └─ NumericTargets</pre>
+  </section>
+
+  <section style="display:flex;flex-direction:column;gap:14px">
+    <h2 style="margin:0;font-size:22px">3. API Endpoints</h2>
+    <div style="background:#fff;border:1px solid rgba(0,0,0,.08);border-radius:14px;overflow:hidden;font-size:13px">
+      <div style="display:grid;grid-template-columns:70px minmax(0,1.3fr) minmax(0,1fr);gap:12px;padding:10px 16px;font:500 11px 'IBM Plex Mono',monospace;color:#666a62;border-bottom:1px solid rgba(0,0,0,.08)"><span>METHOD</span><span>PATH</span><span>ใช้ทำอะไร</span></div>
+      <div style="display:grid;grid-template-columns:70px minmax(0,1.3fr) minmax(0,1fr);gap:12px;padding:10px 16px;border-bottom:1px solid rgba(0,0,0,.06)"><b style="font-family:'IBM Plex Mono',monospace">GET/PUT</b><code>/api/me</code><span>โปรไฟล์ + เป้าหมาย</span></div>
+      <div style="display:grid;grid-template-columns:70px minmax(0,1.3fr) minmax(0,1fr);gap:12px;padding:10px 16px;border-bottom:1px solid rgba(0,0,0,.06)"><b style="font-family:'IBM Plex Mono',monospace">GET</b><code>/api/routines</code><span>รายการ Quick Template</span></div>
+      <div style="display:grid;grid-template-columns:70px minmax(0,1.3fr) minmax(0,1fr);gap:12px;padding:10px 16px;border-bottom:1px solid rgba(0,0,0,.06)"><b style="font-family:'IBM Plex Mono',monospace">GET</b><code>/api/exercises/:id/previous</code><span>Auto-populate ค่าสัปดาห์ก่อน + ค่าแนะนำ</span></div>
+      <div style="display:grid;grid-template-columns:70px minmax(0,1.3fr) minmax(0,1fr);gap:12px;padding:10px 16px;border-bottom:1px solid rgba(0,0,0,.06)"><b style="font-family:'IBM Plex Mono',monospace">POST</b><code>/api/workouts</code><span>บันทึก workout + sets หรือ cardio</span></div>
+      <div style="display:grid;grid-template-columns:70px minmax(0,1.3fr) minmax(0,1fr);gap:12px;padding:10px 16px;border-bottom:1px solid rgba(0,0,0,.06)"><b style="font-family:'IBM Plex Mono',monospace">PUT</b><code>/api/body-metrics/:weekStart</code><span>Check-in รายสัปดาห์ (upsert)</span></div>
+      <div style="display:grid;grid-template-columns:70px minmax(0,1.3fr) minmax(0,1fr);gap:12px;padding:10px 16px;border-bottom:1px solid rgba(0,0,0,.06)"><b style="font-family:'IBM Plex Mono',monospace">POST</b><code>/api/photos/upload-url</code><span>ขอ presigned URL อัปโหลดรูป</span></div>
+      <div style="display:grid;grid-template-columns:70px minmax(0,1.3fr) minmax(0,1fr);gap:12px;padding:10px 16px;border-bottom:1px solid rgba(0,0,0,.06)"><b style="font-family:'IBM Plex Mono',monospace">GET</b><code>/api/photos?weeks=2026-09-01,2026-10-19</code><span>รูปสำหรับ Side-by-Side</span></div>
+      <div style="display:grid;grid-template-columns:70px minmax(0,1.3fr) minmax(0,1fr);gap:12px;padding:10px 16px;border-bottom:1px solid rgba(0,0,0,.06)"><b style="font-family:'IBM Plex Mono',monospace">GET</b><code>/api/stats/weekly-summary?weeks=8</code><span>Workouts, Volume, Time, Calories</span></div>
+      <div style="display:grid;grid-template-columns:70px minmax(0,1.3fr) minmax(0,1fr);gap:12px;padding:10px 16px;border-bottom:1px solid rgba(0,0,0,.06)"><b style="font-family:'IBM Plex Mono',monospace">GET</b><code>/api/stats/strength?exerciseId=&amp;weeks=8</code><span>Top set ต่อสัปดาห์</span></div>
+      <div style="display:grid;grid-template-columns:70px minmax(0,1.3fr) minmax(0,1fr);gap:12px;padding:10px 16px"><b style="font-family:'IBM Plex Mono',monospace">GET</b><code>/api/stats/body?weeks=12</code><span>Weight &amp; Metrics Trend</span></div>
+    </div>
+
+    <h3 style="margin:12px 0 0;font-size:16px">Auto-populate (Progressive Overload)</h3>
+<pre style="margin:0;background:#161714;color:#e9eae4;border-radius:14px;padding:20px;overflow-x:auto;font:13px/1.65 'IBM Plex Mono',monospace">// GET /api/exercises/:id/previous
+export async function GET(req, { params }) {
+  const userId = await requireUser(req);
+  const [last] = await sql`
+    SELECT ws.weight_kg, ws.reps, ws.rpe, w.performed_at,
+           COUNT(*) OVER (PARTITION BY w.id) AS sets
+    FROM workout_sets ws
+    JOIN workouts w ON w.id = ws.workout_id
+    WHERE w.user_id = ${userId}
+      AND ws.exercise_id = ${params.id}
+      AND w.performed_at &lt; date_trunc('week', now())   -- สัปดาห์ก่อนหน้าลงไป
+    ORDER BY w.performed_at DESC, ws.weight_kg DESC
+    LIMIT 1`;
+  if (!last) return Response.json(null);
+
+  const { increment_kg } = await getExercise(params.id);
+  // RPE ≤ 8 → เพิ่มน้ำหนัก, RPE ≥ 9 → คงน้ำหนัก เพิ่ม 1 rep
+  const suggestion = last.rpe &gt;= 9
+    ? { weight_kg: last.weight_kg, reps: last.reps + 1 }
+    : { weight_kg: +last.weight_kg + +increment_kg, reps: last.reps };
+
+  return Response.json({ previous: last, suggestion });
+}</pre>
+
+    <h3 style="margin:12px 0 0;font-size:16px">Weekly summary + strength chart</h3>
+<pre style="margin:0;background:#161714;color:#e9eae4;border-radius:14px;padding:20px;overflow-x:auto;font:13px/1.65 'IBM Plex Mono',monospace">-- /api/stats/weekly-summary
+SELECT date_trunc('week', w.performed_at)::date      AS week_start,
+       COUNT(DISTINCT w.id)                          AS total_workouts,
+       COALESCE(SUM(ws.weight_kg * ws.reps), 0)      AS total_volume_kg,
+       SUM(DISTINCT w.duration_min)                  AS total_minutes,
+       SUM(DISTINCT w.calories)                      AS total_calories
+FROM workouts w
+LEFT JOIN workout_sets ws ON ws.workout_id = w.id
+WHERE w.user_id = $1
+  AND w.performed_at &gt;= date_trunc('week', now()) - ($2 - 1) * interval '1 week'
+GROUP BY 1 ORDER BY 1;
+-- หมายเหตุ: production ควร aggregate duration/calories แยก subquery
+-- เพื่อไม่ให้ SUM(DISTINCT) ตัดค่าซ้ำ
+
+-- /api/stats/strength  (top set + Δ vs สัปดาห์ก่อน)
+WITH weekly AS (
+  SELECT date_trunc('week', w.performed_at)::date AS week_start,
+         MAX(ws.weight_kg)                         AS top_kg,
+         MAX(ws.weight_kg * (1 + ws.reps / 30.0))  AS est_1rm   -- Epley
+  FROM workout_sets ws JOIN workouts w ON w.id = ws.workout_id
+  WHERE w.user_id = $1 AND ws.exercise_id = $2
+  GROUP BY 1
+)
+SELECT *, top_kg - LAG(top_kg) OVER (ORDER BY week_start) AS delta_kg
+FROM weekly ORDER BY week_start DESC LIMIT $3;</pre>
+
+    <h3 style="margin:12px 0 0;font-size:16px">POST /api/workouts · request body</h3>
+<pre style="margin:0;background:#161714;color:#e9eae4;border-radius:14px;padding:20px;overflow-x:auto;font:13px/1.65 'IBM Plex Mono',monospace">{
+  "kind": "strength",
+  "routineId": "chest-day-uuid",
+  "performedAt": "2026-10-22T18:30:00+07:00",
+  "exercises": [
+    { "exerciseId": "bench-uuid", "rpe": 8, "note": "ฟอร์มดี",
+      "sets": [ { "weightKg": 70, "reps": 8 }, { "weightKg": 70, "reps": 8 }, { "weightKg": 70, "reps": 7 } ] }
+  ]
+}</pre>
+  </section>
+
+  <section style="display:flex;flex-direction:column;gap:10px;font-size:14px;line-height:1.7;color:#3a3c37">
+    <h2 style="margin:0;font-size:22px;color:#161714">4. UX notes สำหรับใช้งานในยิม</h2>
+    <div>• ปุ่มและช่องกรอกทั้งหมดสูง ≥ 44px, ใช้ <code>inputmode="decimal"</code> เพื่อเปิด numpad ทันที</div>
+    <div>• เซ็ตถูก prefill ด้วยค่าแนะนำ ผู้ใช้แค่กด ✓ ถ้าทำได้ตามเป้า ลดการพิมพ์ระหว่างพักเซ็ต</div>
+    <div>• บันทึกแบบ offline-first (IndexedDB) แล้ว sync เมื่อมีสัญญาณ เพราะยิมหลายที่สัญญาณไม่ดี</div>
+    <div>• ช่องสัดส่วนร่างกายใช้ค่าสัปดาห์ก่อนเป็น placeholder ถ้าเว้นว่างจะคงค่าเดิม</div>
+  </section>
+</div>
+</x-dc>
+</body>
+</html>

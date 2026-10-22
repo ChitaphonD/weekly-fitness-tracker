@@ -1,0 +1,758 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="./image-slot.js"></script>
+<style>
+body{margin:0;background:#0a0b0a;-webkit-font-smoothing:antialiased}
+[data-theme=dark]{--page:#0a0b0a;--bg:#111311;--surface:#191c19;--surface2:#232723;--line:rgba(255,255,255,.08);--ink:#f2f3ee;--mute:#9da298;--accent:oklch(0.76 0.16 55);--accent-ink:#1c1006;--up:oklch(0.78 0.14 150);--down:oklch(0.72 0.16 28);--sans:'IBM Plex Sans Thai',system-ui,sans-serif;--mono:'IBM Plex Mono',ui-monospace,monospace}
+[data-theme=light]{--page:#e6e4de;--bg:#f5f4f0;--surface:#ffffff;--surface2:#efeee9;--line:rgba(0,0,0,.08);--ink:#161714;--mute:#666a62;--accent:oklch(0.66 0.17 50);--accent-ink:#ffffff;--up:oklch(0.55 0.13 150);--down:oklch(0.56 0.18 28);--sans:'IBM Plex Sans Thai',system-ui,sans-serif;--mono:'IBM Plex Mono',ui-monospace,monospace}
+a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
+input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+input[type=number]{-moz-appearance:textfield}
+input[type=range]{accent-color:var(--accent)}
+[data-theme] *{scrollbar-width:thin;scrollbar-color:color-mix(in oklch,var(--mute) 35%,transparent) transparent}
+[data-theme] ::-webkit-scrollbar{width:6px;height:6px}
+[data-theme] ::-webkit-scrollbar-track{background:transparent}
+[data-theme] ::-webkit-scrollbar-thumb{background:color-mix(in oklch,var(--mute) 30%,transparent);border-radius:99px;border:1px solid transparent;background-clip:padding-box}
+[data-theme] ::-webkit-scrollbar-thumb:hover{background:color-mix(in oklch,var(--accent) 70%,transparent);background-clip:padding-box}
+[data-theme] ::-webkit-scrollbar-corner{background:transparent}
+[data-hscroll]{scrollbar-width:none;-webkit-mask-image:linear-gradient(90deg,transparent 0,#000 12px,#000 calc(100% - 24px),transparent 100%);mask-image:linear-gradient(90deg,transparent 0,#000 12px,#000 calc(100% - 24px),transparent 100%)}
+[data-hscroll]::-webkit-scrollbar{display:none}
+[data-hscroll]>*{scroll-snap-align:start}
+</style>
+</helmet>
+<div data-theme="{{ theme }}" style="min-height:100vh;background:var(--page);display:flex;flex-direction:column;align-items:center;padding:20px 0;box-sizing:border-box;font-family:var(--sans);color:var(--ink)">
+  <div style="width:100%;max-width:420px;display:flex;justify-content:space-between;align-items:center;padding:0 16px 12px;box-sizing:border-box;font-size:12px;color:var(--mute)">
+    <span>Weekly Progress Tracker · Prototype</span>
+    <a href="Tech Spec.dc.html">Schema &amp; API →</a>
+  </div>
+  <div style="width:100%;max-width:420px;height:min(880px,calc(100vh - 72px));min-height:640px;background:var(--bg);border:1px solid var(--line);border-radius:28px;overflow:hidden;display:flex;flex-direction:column;position:relative">
+
+    <div ref="{{ scrollRef }}" style="flex:1;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;scroll-behavior:smooth;scrollbar-gutter:stable;padding:20px 12px 32px 16px;display:flex;flex-direction:column;gap:14px">
+
+      <sc-if value="{{ isDash }}" hint-placeholder-val="{{ true }}">
+        <div style="display:flex;flex-direction:column;gap:14px">
+          <div style="display:flex;justify-content:space-between;align-items:flex-end">
+            <div>
+              <button onClick="{{ openWeek }}" style="display:flex;align-items:center;gap:6px;height:24px;padding:0 10px;margin-left:-2px;border-radius:99px;border:1px solid var(--line);background:var(--surface);color:var(--mute);font:500 12px var(--mono);letter-spacing:.04em;cursor:pointer">{{ weekHeader }} · 19–25 ต.ค. <span style="color:var(--accent)">▾</span></button>
+              <div style="font-size:24px;font-weight:700;margin-top:4px">ภาพรวมสัปดาห์นี้</div>
+            </div>
+            <button onClick="{{ toggleTheme }}" style="width:44px;height:44px;border-radius:12px;border:1px solid var(--line);background:var(--surface);color:var(--ink);font:500 11px var(--mono);cursor:pointer">{{ themeLabel }}</button>
+          </div>
+
+          <div style="background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:16px;display:flex;flex-direction:column;gap:10px">
+            <div style="display:flex;justify-content:space-between;font-size:13px;color:var(--mute)"><span>เป้าหมาย · {{ goal }}</span><span style="font-family:var(--mono)">{{ goalPctLabel }}</span></div>
+            <div style="display:flex;align-items:baseline;gap:8px"><span style="font:600 30px var(--mono)">{{ latestWeight }}</span><span style="color:var(--mute);font-size:14px">kg → {{ targetWeight }} kg</span></div>
+            <div style="height:8px;background:var(--surface2);border-radius:99px;overflow:hidden"><div style="height:100%;width:{{ goalPct }};background:var(--accent);border-radius:99px;transition:width .4s"></div></div>
+          </div>
+
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+            <sc-for list="{{ tiles }}" as="t" hint-placeholder-count="4">
+              <div style="background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:14px;display:flex;flex-direction:column;gap:6px">
+                <div style="font-size:12px;color:var(--mute)">{{ t.label }}</div>
+                <div style="font:600 22px var(--mono)">{{ t.value }}<span style="font-size:12px;color:var(--mute);margin-left:4px">{{ t.unit }}</span></div>
+                <div style="font:500 11px var(--mono);color:{{ t.color }}">{{ t.delta }}</div>
+              </div>
+            </sc-for>
+          </div>
+
+          <div style="background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:16px;display:flex;flex-direction:column;gap:12px">
+            <div style="display:flex;justify-content:space-between;align-items:baseline"><span style="font-weight:600">Volume รายสัปดาห์</span><span style="font:500 11px var(--mono);color:var(--mute)">kg · 8 สัปดาห์</span></div>
+            <div style="display:flex;align-items:flex-end;gap:6px;height:72px">
+              <sc-for list="{{ volBars }}" as="b" hint-placeholder-count="8">
+                <div style="flex:1;height:{{ b.h }};background:{{ b.bg }};border-radius:5px 5px 2px 2px;transition:height .4s"></div>
+              </sc-for>
+            </div>
+            <div style="display:flex;gap:6px"><sc-for list="{{ volBars }}" as="b" hint-placeholder-count="8"><div style="flex:1;text-align:center;font:500 10px var(--mono);color:var(--mute)">{{ b.label }}</div></sc-for></div>
+          </div>
+
+          <div style="background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:16px;display:flex;flex-direction:column;gap:12px">
+            <div style="font-weight:600">แนวโน้มร่างกาย</div>
+            <div data-hscroll="1" style="display:flex;gap:6px;overflow-x:auto;overscroll-behavior-x:contain;scroll-snap-type:x proximity;scroll-padding:0 12px;margin:0 -16px;padding:2px 16px">
+              <sc-for list="{{ metricChips }}" as="c" hint-placeholder-count="6">
+                <button onClick="{{ c.onClick }}" style="flex:none;height:34px;padding:0 14px;border-radius:99px;border:1px solid {{ c.border }};background:{{ c.bg }};color:{{ c.color }};font:500 13px var(--sans);cursor:pointer">{{ c.label }}</button>
+              </sc-for>
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:flex-end">
+              <div><span style="font:600 26px var(--mono)">{{ mChart.last }}</span><span style="font-size:13px;color:var(--mute);margin-left:4px">{{ mChart.unit }}</span></div>
+              <div style="text-align:right;font:500 11px/1.6 var(--mono)">
+                <div style="color:{{ mChart.wkColor }}">{{ mChart.wk }} vs สัปดาห์ก่อน</div>
+                <div style="color:var(--mute)">{{ mChart.total }} ตั้งแต่เริ่ม</div>
+              </div>
+            </div>
+            <sc-if value="{{ noMData }}" hint-placeholder-val="{{ false }}">
+              <div style="padding:24px 12px;border:1px dashed var(--line);border-radius:12px;text-align:center;font-size:13px;color:var(--mute);line-height:1.6">ยังไม่มีข้อมูล<br>บันทึก Check-in ในแท็บร่างกายเพื่อเริ่มกราฟ</div>
+            </sc-if>
+            <sc-if value="{{ hasMData }}" hint-placeholder-val="{{ true }}">
+            <svg viewBox="0 0 320 150" style="width:100%;height:auto;display:block;overflow:visible">
+              <defs><linearGradient id="mfill" x1="0" y1="0" x2="0" y2="1"><stop offset="0" style="stop-color:var(--accent);stop-opacity:.28"></stop><stop offset="1" style="stop-color:var(--accent);stop-opacity:0"></stop></linearGradient></defs>
+              <line x1="20" x2="300" y1="{{ mChart.targetY }}" y2="{{ mChart.targetY }}" style="stroke:var(--mute);stroke-dasharray:4 4;opacity:{{ mChart.targetOpacity }}"></line>
+              <path d="{{ mChart.area }}" fill="url(#mfill)"></path>
+              <path d="{{ mChart.line }}" style="fill:none;stroke:var(--accent);stroke-width:2.5;stroke-linejoin:round;stroke-linecap:round"></path>
+              <circle cx="{{ mChart.lx }}" cy="{{ mChart.ly }}" r="5" style="fill:var(--bg);stroke:var(--accent);stroke-width:2.5"></circle>
+            </svg>
+            <div style="display:flex;justify-content:space-between;padding:0 10px;font:500 10px var(--mono);color:var(--mute)"><sc-for list="{{ weekTicks }}" as="w" hint-placeholder-count="8"><span>{{ w }}</span></sc-for></div>
+            <sc-if value="{{ mChart.hasTarget }}" hint-placeholder-val="{{ true }}"><div style="font-size:11px;color:var(--mute)">เส้นประ = น้ำหนักเป้าหมาย {{ targetWeight }} kg</div></sc-if>
+            </sc-if>
+          </div>
+
+          <div style="background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:16px;display:flex;flex-direction:column;gap:12px">
+            <div style="font-weight:600">Strength Progress</div>
+            <sc-if value="{{ noStr }}" hint-placeholder-val="{{ false }}">
+              <div style="padding:24px 12px;border:1px dashed var(--line);border-radius:12px;text-align:center;font-size:13px;color:var(--mute);line-height:1.6">ยังไม่มีข้อมูลการยก<br>บันทึก Workout แรกเพื่อเริ่มติดตามความแข็งแรง</div>
+            </sc-if>
+            <sc-if value="{{ hasStr }}" hint-placeholder-val="{{ true }}">
+            <div style="display:flex;flex-direction:column;gap:12px">
+            <div data-hscroll="1" style="display:flex;gap:6px;overflow-x:auto;overscroll-behavior-x:contain;scroll-snap-type:x proximity;scroll-padding:0 12px;margin:0 -16px;padding:2px 16px">
+              <sc-for list="{{ exChips }}" as="c" hint-placeholder-count="5">
+                <button onClick="{{ c.onClick }}" style="flex:none;height:34px;padding:0 12px;border-radius:99px;border:1px solid {{ c.border }};background:{{ c.bg }};color:{{ c.color }};font:500 12px var(--sans);cursor:pointer;white-space:nowrap">{{ c.label }}</button>
+              </sc-for>
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:flex-end">
+              <div><div style="font-size:12px;color:var(--mute)">Top set ล่าสุด</div><span style="font:600 26px var(--mono)">{{ str.latest }}</span><span style="font-size:13px;color:var(--mute);margin-left:4px">kg</span></div>
+              <div style="font:600 13px var(--mono);color:{{ str.color }};background:var(--surface2);padding:6px 10px;border-radius:8px">{{ str.delta }}</div>
+            </div>
+            <div style="display:flex;align-items:flex-end;gap:6px;height:110px">
+              <sc-for list="{{ str.bars }}" as="b" hint-placeholder-count="8">
+                <div style="flex:1;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;gap:4px;height:100%">
+                  <span style="font:500 9px var(--mono);color:var(--mute)">{{ b.label }}</span>
+                  <div style="width:100%;height:{{ b.h }};background:{{ b.bg }};border:1px dashed {{ b.border }};box-sizing:border-box;border-radius:5px 5px 2px 2px;transition:height .4s"></div>
+                </div>
+              </sc-for>
+            </div>
+            <div style="display:flex;justify-content:space-between;padding:0 4px;font:500 10px var(--mono);color:var(--mute)"><sc-for list="{{ weekTicks }}" as="w" hint-placeholder-count="8"><span>{{ w }}</span></sc-for></div>
+            </div>
+            </sc-if>
+          </div>
+
+          <div style="background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:6px 16px">
+            <div style="display:grid;grid-template-columns:1fr 64px 64px 64px;gap:8px;padding:10px 0;font:500 10px var(--mono);color:var(--mute);border-bottom:1px solid var(--line)"><span>ท่า</span><span style="text-align:right">{{ prevWeekLabel }}</span><span style="text-align:right">{{ weekLabel }}</span><span style="text-align:right">Δ</span></div>
+            <sc-if value="{{ cmpEmpty }}" hint-placeholder-val="{{ false }}"><div style="padding:14px 0;font-size:13px;color:var(--mute)">ยังไม่มีท่าที่บันทึกในสัปดาห์นี้</div></sc-if>
+            <sc-for list="{{ cmpRows }}" as="r" hint-placeholder-count="6">
+              <div style="display:grid;grid-template-columns:1fr 64px 64px 64px;gap:8px;padding:11px 0;font-size:13px;border-bottom:1px solid var(--line);align-items:center">
+                <span>{{ r.name }}</span>
+                <span style="text-align:right;font-family:var(--mono);color:var(--mute)">{{ r.prev }}</span>
+                <span style="text-align:right;font-family:var(--mono)">{{ r.cur }}</span>
+                <span style="text-align:right;font:600 12px var(--mono);color:{{ r.color }}">{{ r.delta }}</span>
+              </div>
+            </sc-for>
+          </div>
+          <button onClick="{{ goPhotos }}" style="height:48px;border-radius:14px;border:1px solid var(--line);background:transparent;color:var(--ink);font:500 14px var(--sans);cursor:pointer">เปรียบเทียบรูป Progress →</button>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ isLog }}" hint-placeholder-val="{{ false }}">
+        <div style="display:flex;flex-direction:column;gap:14px">
+          <div>
+            <div style="font:500 12px var(--mono);color:var(--mute);letter-spacing:.04em">พฤ. 22 ต.ค.</div>
+            <div style="font-size:24px;font-weight:700;margin-top:4px">บันทึกการฝึก</div>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;background:var(--surface2);border-radius:12px;padding:4px;gap:4px">
+            <sc-for list="{{ logModes }}" as="m" hint-placeholder-count="2">
+              <button onClick="{{ m.onClick }}" style="height:40px;border:none;border-radius:9px;background:{{ m.bg }};color:{{ m.color }};font:600 14px var(--sans);cursor:pointer">{{ m.label }}</button>
+            </sc-for>
+          </div>
+
+          <sc-if value="{{ isWeight }}" hint-placeholder-val="{{ true }}">
+            <div style="display:flex;flex-direction:column;gap:12px">
+              <div style="font-size:12px;color:var(--mute)">Quick Routine</div>
+              <div data-hscroll="1" style="display:flex;gap:8px;overflow-x:auto;overscroll-behavior-x:contain;scroll-snap-type:x proximity;scroll-padding:0 16px;margin:0 -12px 0 -16px;padding:2px 16px">
+                <sc-for list="{{ tpls }}" as="t" hint-placeholder-count="3">
+                  <button onClick="{{ t.onClick }}" style="flex:none;min-width:108px;padding:12px;border-radius:14px;border:1px solid {{ t.border }};background:{{ t.bg }};color:var(--ink);text-align:left;cursor:pointer;display:flex;flex-direction:column;gap:4px;font-family:var(--sans)">
+                    <span style="font-weight:600;font-size:14px">{{ t.name }}</span>
+                    <span style="font-size:11px;color:var(--mute)">{{ t.count }} ท่า</span>
+                  </button>
+                </sc-for>
+              </div>
+
+              <sc-if value="{{ sessionEmpty }}" hint-placeholder-val="{{ true }}">
+                <div style="padding:28px 16px;border:1px dashed var(--line);border-radius:16px;text-align:center;color:var(--mute);font-size:13px;line-height:1.6">เลือก Routine ด้านบน หรือเพิ่มท่าเอง<br>ระบบจะดึงน้ำหนัก/Reps ของสัปดาห์ก่อนมาให้อัตโนมัติ</div>
+              </sc-if>
+
+              <sc-for list="{{ session }}" as="ex" hint-placeholder-count="0">
+                <div style="background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:14px;display:flex;flex-direction:column;gap:10px">
+                  <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
+                    <div>
+                      <div style="font-weight:600;font-size:16px">{{ ex.name }}</div>
+                      <div style="font:500 11px var(--mono);color:var(--mute);margin-top:3px">สัปดาห์ก่อน · {{ ex.ref }}</div>
+                    </div>
+                    <button onClick="{{ ex.remove }}" style="width:32px;height:32px;border:none;background:transparent;color:var(--mute);font-size:18px;cursor:pointer">×</button>
+                  </div>
+                  <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;background:var(--surface2);border-radius:10px;padding:8px 10px;font-size:12px">
+                    <span style="color:var(--mute)">Progressive overload</span>
+                    <span style="font:600 12px var(--mono);color:{{ ex.dColor }}">{{ ex.dLabel }}</span>
+                  </div>
+                  <div style="display:grid;grid-template-columns:28px 1fr 1fr 44px;gap:8px;font:500 10px var(--mono);color:var(--mute);padding:0 2px"><span>SET</span><span>KG</span><span>REPS</span><span></span></div>
+                  <sc-for list="{{ ex.sets }}" as="st" hint-placeholder-count="3">
+                    <div style="display:grid;grid-template-columns:28px 1fr 1fr 44px;gap:8px;align-items:center;opacity:{{ st.op }}">
+                      <span style="font:600 13px var(--mono);color:var(--mute);text-align:center">{{ st.num }}</span>
+                      <input type="number" inputmode="decimal" value="{{ st.kg }}" onChange="{{ st.onKg }}" style="width:100%;min-width:0;box-sizing:border-box;height:44px;background:var(--surface2);border:1px solid var(--line);border-radius:10px;padding:0 12px;color:var(--ink);font:600 16px var(--mono);outline:none" style-focus="border-color:var(--accent)">
+                      <input type="number" inputmode="numeric" value="{{ st.reps }}" onChange="{{ st.onReps }}" style="width:100%;min-width:0;box-sizing:border-box;height:44px;background:var(--surface2);border:1px solid var(--line);border-radius:10px;padding:0 12px;color:var(--ink);font:600 16px var(--mono);outline:none" style-focus="border-color:var(--accent)">
+                      <button onClick="{{ st.toggle }}" style="width:44px;height:44px;border-radius:10px;border:1px solid {{ st.border }};background:{{ st.bg }};color:{{ st.color }};font:700 16px var(--sans);cursor:pointer">✓</button>
+                    </div>
+                  </sc-for>
+                  <button onClick="{{ ex.addSet }}" style="height:38px;border-radius:10px;border:1px dashed var(--line);background:transparent;color:var(--mute);font:500 13px var(--sans);cursor:pointer">+ เพิ่มเซ็ต</button>
+                  <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--mute)"><span>RPE · ความเหนื่อย</span><span style="font-family:var(--mono)">{{ ex.rpeLabel }}</span></div>
+                  <div style="display:grid;grid-template-columns:repeat(10,1fr);gap:4px">
+                    <sc-for list="{{ ex.rpeOpts }}" as="r" hint-placeholder-count="10">
+                      <button onClick="{{ r.onClick }}" style="height:36px;border-radius:8px;border:none;background:{{ r.bg }};color:{{ r.color }};font:600 12px var(--mono);cursor:pointer;padding:0">{{ r.n }}</button>
+                    </sc-for>
+                  </div>
+                  <input type="text" placeholder="Notes เช่น ฟอร์มดี, ไหล่ตึงนิดหน่อย" value="{{ ex.note }}" onChange="{{ ex.onNote }}" style="width:100%;box-sizing:border-box;height:42px;background:transparent;border:none;border-bottom:1px solid var(--line);padding:0 2px;color:var(--ink);font:400 13px var(--sans);outline:none">
+                </div>
+              </sc-for>
+
+              <button onClick="{{ togglePicker }}" style="height:46px;border-radius:14px;border:1px dashed var(--line);background:transparent;color:var(--ink);font:500 14px var(--sans);cursor:pointer">+ เพิ่มท่า</button>
+              <sc-if value="{{ showPicker }}" hint-placeholder-val="{{ false }}">
+                <div style="display:flex;flex-direction:column;gap:12px;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:12px">
+                  <div style="display:flex;flex-wrap:wrap;gap:6px">
+                    <button onClick="{{ openExercise }}" style="height:36px;padding:0 14px;border-radius:99px;border:1px solid var(--accent);background:transparent;color:var(--accent);font:600 12px var(--sans);cursor:pointer">+ สร้างท่าใหม่</button>
+                    <sc-for list="{{ pickList }}" as="p" hint-placeholder-count="6">
+                      <button onClick="{{ p.onClick }}" style="height:36px;padding:0 12px;border-radius:99px;border:1px solid var(--line);background:var(--surface2);color:var(--ink);font:500 12px var(--sans);cursor:pointer">{{ p.name }}</button>
+                    </sc-for>
+                  </div>
+                  <sc-if value="{{ hasCustomEx }}" hint-placeholder-val="{{ false }}">
+                    <div style="display:flex;flex-direction:column;border-top:1px solid var(--line);padding-top:8px">
+                      <div style="font-size:11px;color:var(--mute);padding:2px 0 4px">ท่าที่สร้างเอง</div>
+                      <sc-for list="{{ customExItems }}" as="c" hint-placeholder-count="0">
+                        <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;min-height:44px">
+                          <div><div style="font-size:13px;font-weight:500">{{ c.label }}</div><div style="font:500 10px var(--mono);color:var(--mute)">{{ c.sub }}</div></div>
+                          <button onClick="{{ c.remove }}" style="height:32px;padding:0 10px;border-radius:8px;border:1px solid var(--line);background:transparent;color:var(--down);font:500 12px var(--sans);cursor:pointer">ลบ</button>
+                        </div>
+                      </sc-for>
+                    </div>
+                  </sc-if>
+                </div>
+              </sc-if>
+              <sc-if value="{{ sessionHas }}" hint-placeholder-val="{{ false }}">
+                <button onClick="{{ saveSession }}" style="height:52px;border-radius:14px;border:none;background:var(--accent);color:var(--accent-ink);font:700 15px var(--sans);cursor:pointer">บันทึก Workout · {{ sessionVol }} kg</button>
+              </sc-if>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ isCardio }}" hint-placeholder-val="{{ false }}">
+            <div style="display:flex;flex-direction:column;gap:12px">
+              <div style="display:flex;gap:6px">
+                <sc-for list="{{ cardioTypes }}" as="c" hint-placeholder-count="3">
+                  <button onClick="{{ c.onClick }}" style="flex:1;height:40px;border-radius:99px;border:1px solid {{ c.border }};background:{{ c.bg }};color:{{ c.color }};font:500 13px var(--sans);cursor:pointer">{{ c.label }}</button>
+                </sc-for>
+              </div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+                <sc-for list="{{ cardioFields }}" as="f" hint-placeholder-count="3">
+                  <label style="display:flex;flex-direction:column;gap:6px;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:12px">
+                    <span style="font-size:12px;color:var(--mute)">{{ f.label }}</span>
+                    <input type="number" inputmode="decimal" placeholder="{{ f.ph }}" value="{{ f.value }}" onChange="{{ f.onChange }}" style="width:100%;box-sizing:border-box;background:transparent;border:none;color:var(--ink);font:600 24px var(--mono);outline:none;padding:0">
+                  </label>
+                </sc-for>
+                <div style="display:flex;flex-direction:column;gap:6px;background:var(--surface2);border-radius:14px;padding:12px">
+                  <span style="font-size:12px;color:var(--mute)">Pace</span>
+                  <span style="font:600 24px var(--mono)">{{ pace }}</span>
+                </div>
+              </div>
+              <button onClick="{{ saveCardio }}" style="height:52px;border-radius:14px;border:none;background:var(--accent);color:var(--accent-ink);font:700 15px var(--sans);cursor:pointer">บันทึก Cardio</button>
+              <div style="font-size:12px;color:var(--mute);margin-top:6px">ล่าสุด</div>
+              <sc-for list="{{ cardioLog }}" as="c" hint-placeholder-count="2">
+                <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 14px;background:var(--surface);border:1px solid var(--line);border-radius:14px">
+                  <div><div style="font-weight:600;font-size:14px">{{ c.type }}</div><div style="font-size:11px;color:var(--mute)">{{ c.day }}</div></div>
+                  <div style="font:500 12px var(--mono);text-align:right;line-height:1.6">{{ c.km }} km · {{ c.min }} min<br><span style="color:var(--mute)">{{ c.kcal }} kcal</span></div>
+                </div>
+              </sc-for>
+            </div>
+          </sc-if>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ isBody }}" hint-placeholder-val="{{ false }}">
+        <div style="display:flex;flex-direction:column;gap:14px">
+          <div>
+            <div style="font:500 12px var(--mono);color:var(--mute);letter-spacing:.04em">WEEKLY CHECK-IN · {{ weekLabel }}</div>
+            <div style="font-size:24px;font-weight:700;margin-top:4px">สัดส่วนร่างกาย</div>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+            <sc-for list="{{ bodyFields }}" as="f" hint-placeholder-count="6">
+              <label style="display:flex;flex-direction:column;gap:4px;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:12px">
+                <span style="display:flex;justify-content:space-between;font-size:12px;color:var(--mute)"><span>{{ f.label }}</span><span style="font-family:var(--mono)">{{ f.unit }}</span></span>
+                <input type="number" inputmode="decimal" placeholder="{{ f.last }}" value="{{ f.value }}" onChange="{{ f.onChange }}" style="width:100%;box-sizing:border-box;background:transparent;border:none;color:var(--ink);font:600 24px var(--mono);outline:none;padding:0">
+                <span style="font:500 10px var(--mono);color:var(--mute)">สัปดาห์ก่อน {{ f.last }}</span>
+              </label>
+            </sc-for>
+          </div>
+          <button onClick="{{ saveBody }}" style="height:52px;border-radius:14px;border:none;background:var(--accent);color:var(--accent-ink);font:700 15px var(--sans);cursor:pointer">{{ bodyBtn }}</button>
+
+          <div style="background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:14px;display:flex;flex-direction:column;gap:12px">
+            <div style="display:flex;justify-content:space-between;align-items:center">
+              <span style="font-weight:600">Progress Photos</span>
+              <div style="display:flex;background:var(--surface2);border-radius:9px;padding:3px;gap:3px">
+                <sc-for list="{{ cmpModes }}" as="m" hint-placeholder-count="2">
+                  <button onClick="{{ m.onClick }}" style="height:30px;padding:0 10px;border:none;border-radius:7px;background:{{ m.bg }};color:{{ m.color }};font:500 12px var(--sans);cursor:pointer">{{ m.label }}</button>
+                </sc-for>
+              </div>
+            </div>
+            <div style="position:relative;width:100%;aspect-ratio:3/4;border-radius:12px;overflow:hidden;background:var(--surface2)">
+              <sc-for list="{{ photoSlots }}" as="p" hint-placeholder-count="8">
+                <div style="position:absolute;top:0;bottom:0;left:{{ p.left }};width:{{ p.width }};z-index:{{ p.z }};display:{{ p.display }};clip-path:{{ p.clip }};padding:{{ p.pad }};box-sizing:border-box">
+                  <image-slot id="{{ p.id }}" shape="rect" placeholder="{{ p.ph }}"></image-slot>
+                  <span style="position:absolute;top:10px;left:{{ p.tagLeft }};font:600 11px var(--mono);background:rgba(0,0,0,.6);color:#fff;padding:4px 8px;border-radius:6px;pointer-events:none">{{ p.tag }}</span>
+                </div>
+              </sc-for>
+              <sc-if value="{{ isSlider }}" hint-placeholder-val="{{ true }}">
+                <div style="position:absolute;top:0;bottom:0;left:{{ posPct }};width:2px;margin-left:-1px;background:#fff;z-index:5;pointer-events:none;box-shadow:0 0 0 1px rgba(0,0,0,.2)"></div>
+              </sc-if>
+            </div>
+            <sc-if value="{{ isSlider }}" hint-placeholder-val="{{ true }}">
+              <input type="range" min="0" max="100" value="{{ pos }}" onInput="{{ onPos }}" onChange="{{ onPos }}" style="width:100%">
+            </sc-if>
+            <div style="display:flex;flex-direction:column;gap:8px">
+              <div style="display:flex;align-items:center;gap:8px"><span style="width:36px;font-size:12px;color:var(--mute)">ก่อน</span>
+                <div style="display:grid;grid-template-columns:repeat(8,1fr);gap:4px;flex:1">
+                  <sc-for list="{{ pickA }}" as="w" hint-placeholder-count="8"><button onClick="{{ w.onClick }}" style="height:34px;border-radius:8px;border:none;background:{{ w.bg }};color:{{ w.color }};font:600 11px var(--mono);cursor:pointer;padding:0">{{ w.label }}</button></sc-for>
+                </div>
+              </div>
+              <div style="display:flex;align-items:center;gap:8px"><span style="width:36px;font-size:12px;color:var(--mute)">หลัง</span>
+                <div style="display:grid;grid-template-columns:repeat(8,1fr);gap:4px;flex:1">
+                  <sc-for list="{{ pickB }}" as="w" hint-placeholder-count="8"><button onClick="{{ w.onClick }}" style="height:34px;border-radius:8px;border:none;background:{{ w.bg }};color:{{ w.color }};font:600 11px var(--mono);cursor:pointer;padding:0">{{ w.label }}</button></sc-for>
+                </div>
+              </div>
+            </div>
+            <div style="font-size:11px;color:var(--mute);line-height:1.5">แตะหรือลากรูปลงในช่องเพื่ออัปโหลดรูปของสัปดาห์นั้น · {{ photoDiff }}</div>
+          </div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ isProfile }}" hint-placeholder-val="{{ false }}">
+        <div style="display:flex;flex-direction:column;gap:14px">
+          <div style="font-size:24px;font-weight:700">โปรไฟล์ &amp; เป้าหมาย</div>
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px">
+            <sc-for list="{{ profStats }}" as="s" hint-placeholder-count="3">
+              <div style="background:var(--surface2);border-radius:14px;padding:12px;display:flex;flex-direction:column;gap:2px"><span style="font-size:11px;color:var(--mute)">{{ s.label }}</span><span style="font:600 18px var(--mono)">{{ s.value }}</span></div>
+            </sc-for>
+          </div>
+          <div style="font-size:12px;color:var(--mute);margin-top:4px">ข้อมูลกายภาพ</div>
+          <div style="background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:4px 14px">
+            <label style="display:flex;justify-content:space-between;align-items:center;min-height:52px;border-bottom:1px solid var(--line);gap:12px"><span style="font-size:14px">ส่วนสูง (cm)</span><input type="number" value="{{ p.height }}" onChange="{{ onHeight }}" style="width:110px;text-align:right;background:transparent;border:none;color:var(--ink);font:600 16px var(--mono);outline:none"></label>
+            <label style="display:flex;justify-content:space-between;align-items:center;min-height:52px;border-bottom:1px solid var(--line);gap:12px"><span style="font-size:14px">วันเกิด</span><input type="date" value="{{ p.birth }}" onChange="{{ onBirth }}" style="background:transparent;border:none;color:var(--ink);font:500 14px var(--mono);outline:none;color-scheme:{{ theme }}"></label>
+            <div style="display:flex;justify-content:space-between;align-items:center;min-height:52px;gap:12px"><span style="font-size:14px">เพศ</span>
+              <div style="display:flex;background:var(--surface2);border-radius:9px;padding:3px;gap:3px">
+                <sc-for list="{{ sexOpts }}" as="o" hint-placeholder-count="3"><button onClick="{{ o.onClick }}" style="height:32px;padding:0 12px;border:none;border-radius:7px;background:{{ o.bg }};color:{{ o.color }};font:500 13px var(--sans);cursor:pointer">{{ o.label }}</button></sc-for>
+              </div>
+            </div>
+          </div>
+          <div style="font-size:12px;color:var(--mute);margin-top:4px">เป้าหมายหลัก</div>
+          <div style="display:flex;flex-direction:column;gap:8px">
+            <sc-for list="{{ goalOpts }}" as="o" hint-placeholder-count="3">
+              <button onClick="{{ o.onClick }}" style="display:flex;justify-content:space-between;align-items:center;min-height:56px;padding:0 16px;border-radius:14px;border:1px solid {{ o.border }};background:var(--surface);color:var(--ink);cursor:pointer;font-family:var(--sans);text-align:left">
+                <span><span style="display:block;font-weight:600;font-size:14px">{{ o.label }}</span><span style="font-size:11px;color:var(--mute)">{{ o.sub }}</span></span>
+                <span style="width:18px;height:18px;border-radius:99px;border:2px solid {{ o.border }};background:{{ o.dot }};box-sizing:border-box"></span>
+              </button>
+            </sc-for>
+          </div>
+          <div style="font-size:12px;color:var(--mute);margin-top:4px">เป้าหมายเชิงตัวเลข</div>
+          <div style="background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:4px 14px">
+            <label style="display:flex;justify-content:space-between;align-items:center;min-height:52px;border-bottom:1px solid var(--line);gap:12px"><span style="font-size:14px">น้ำหนักเป้าหมาย (kg)</span><input type="number" value="{{ p.target }}" onChange="{{ onTarget }}" style="width:110px;text-align:right;background:transparent;border:none;color:var(--ink);font:600 16px var(--mono);outline:none"></label>
+            <label style="display:flex;justify-content:space-between;align-items:center;min-height:52px;gap:12px"><span style="font-size:14px">ฝึกต่อสัปดาห์ (ครั้ง)</span><input type="number" value="{{ p.freq }}" onChange="{{ onFreq }}" style="width:110px;text-align:right;background:transparent;border:none;color:var(--ink);font:600 16px var(--mono);outline:none"></label>
+          </div>
+          <button onClick="{{ openWeek }}" style="display:flex;justify-content:space-between;align-items:center;min-height:52px;padding:0 16px;border-radius:14px;border:1px solid var(--line);background:var(--surface);color:var(--ink);font:500 14px var(--sans);cursor:pointer"><span>สัปดาห์ปัจจุบัน</span><span style="font-family:var(--mono);color:var(--accent)">{{ weekLabel }} ▾</span></button>
+          <button onClick="{{ toggleTheme }}" style="display:flex;justify-content:space-between;align-items:center;min-height:52px;padding:0 16px;border-radius:14px;border:1px solid var(--line);background:var(--surface);color:var(--ink);font:500 14px var(--sans);cursor:pointer"><span>Dark Mode</span><span style="font-family:var(--mono);color:var(--mute)">{{ themeOnOff }}</span></button>
+        </div>
+      </sc-if>
+    </div>
+
+    <sc-if value="{{ sheetOpen }}" hint-placeholder-val="{{ false }}">
+      <div style="position:absolute;inset:0;z-index:30;display:flex;flex-direction:column;justify-content:flex-end">
+        <div onClick="{{ closeSheet }}" style="position:absolute;inset:0;background:rgba(0,0,0,.55)"></div>
+        <div style="position:relative;background:var(--bg);border-top:1px solid var(--line);border-radius:22px 22px 0 0;padding:10px 16px 22px;display:flex;flex-direction:column;gap:14px;max-height:85%;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch">
+          <div style="width:36px;height:4px;border-radius:99px;background:var(--line);align-self:center"></div>
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <span style="font-size:18px;font-weight:700">{{ sheetTitle }}</span>
+            <button onClick="{{ closeSheet }}" style="width:44px;height:44px;border:none;background:transparent;color:var(--mute);font-size:22px;cursor:pointer">×</button>
+          </div>
+          <label style="display:flex;flex-direction:column;gap:6px;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:12px">
+            <span style="font-size:12px;color:var(--mute)">{{ sheetNameLabel }}</span>
+            <input type="text" placeholder="{{ sheetNamePh }}" value="{{ sheetName }}" onChange="{{ onSheetName }}" style="width:100%;box-sizing:border-box;background:transparent;border:none;color:var(--ink);font:600 18px var(--sans);outline:none;padding:0">
+          </label>
+          <sc-if value="{{ isExSheet }}" hint-placeholder-val="{{ true }}">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+              <sc-for list="{{ sheetNums }}" as="f" hint-placeholder-count="4">
+                <label style="display:flex;flex-direction:column;gap:6px;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:12px">
+                  <span style="font-size:12px;color:var(--mute)">{{ f.label }}</span>
+                  <input type="number" inputmode="decimal" placeholder="{{ f.ph }}" value="{{ f.value }}" onChange="{{ f.onChange }}" style="width:100%;box-sizing:border-box;background:transparent;border:none;color:var(--ink);font:600 22px var(--mono);outline:none;padding:0">
+                </label>
+              </sc-for>
+            </div>
+            <div style="font-size:11px;color:var(--mute);line-height:1.5">ถ้าใส่น้ำหนักเริ่มต้น ระบบจะใช้เป็นค่าอ้างอิงของสัปดาห์ก่อน และเติมน้ำหนักแนะนำให้ทันที</div>
+          </sc-if>
+          <sc-if value="{{ hasSheetErr }}" hint-placeholder-val="{{ false }}">
+            <div style="font-size:13px;color:var(--down)">{{ sheetErr }}</div>
+          </sc-if>
+          <button onClick="{{ submitSheet }}" style="height:52px;border-radius:14px;border:none;background:var(--accent);color:var(--accent-ink);font:700 15px var(--sans);cursor:pointer">{{ sheetSubmitLabel }}</button>
+        </div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ weekPopup }}" hint-placeholder-val="{{ false }}">
+      <div style="position:absolute;inset:0;z-index:40;display:flex;align-items:center;justify-content:center;padding:20px;box-sizing:border-box">
+        <div onClick="{{ closeWeek }}" style="position:absolute;inset:0;background:rgba(0,0,0,.6);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)"></div>
+        <div style="position:relative;width:100%;max-height:100%;overflow-y:auto;overscroll-behavior:contain;background:var(--bg);border:1px solid var(--line);border-radius:24px;padding:24px 20px 20px;box-sizing:border-box;display:flex;flex-direction:column;gap:18px;box-shadow:0 24px 60px rgba(0,0,0,.4)">
+          <sc-if value="{{ canCloseWeek }}" hint-placeholder-val="{{ false }}">
+            <button onClick="{{ closeWeek }}" style="position:absolute;top:10px;right:10px;width:44px;height:44px;border:none;background:transparent;color:var(--mute);font-size:22px;cursor:pointer">×</button>
+          </sc-if>
+          <div style="display:flex;flex-direction:column;gap:6px">
+            <div style="font:500 11px var(--mono);color:var(--accent);letter-spacing:.06em">WEEKLY PROGRESS TRACKER</div>
+            <div style="font-size:22px;font-weight:700">{{ weekTitle }}</div>
+            <div style="font-size:14px;line-height:1.6;color:var(--mute);text-wrap:pretty">เลือกสัปดาห์ที่คุณกำลังฝึกอยู่ ระบบจะใช้เป็นจุดเริ่มต้นในการเทียบ progress ทุกสัปดาห์</div>
+          </div>
+          <button onClick="{{ w1.onClick }}" style="display:flex;align-items:center;gap:16px;padding:16px;border-radius:18px;border:1.5px solid {{ w1.border }};background:{{ w1.bg }};color:var(--ink);cursor:pointer;text-align:left;font-family:var(--sans)">
+            <span style="font:600 40px/1 var(--mono);color:var(--accent)">01</span>
+            <span style="flex:1;display:flex;flex-direction:column;gap:2px"><span style="font-weight:700;font-size:16px">สัปดาห์ที่ 1</span><span style="font-size:12px;color:var(--mute)">เริ่มต้นใหม่ · ยังไม่มีข้อมูล</span></span>
+            <span style="width:20px;height:20px;border-radius:99px;border:2px solid {{ w1.border }};background:{{ w1.dot }};box-sizing:border-box;flex:none"></span>
+          </button>
+          <div style="display:flex;flex-direction:column;gap:8px">
+            <div style="font-size:12px;color:var(--mute)">หรือ ต่อจากสัปดาห์ที่</div>
+            <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:6px">
+              <sc-for list="{{ weekOpts }}" as="o" hint-placeholder-count="7">
+                <button onClick="{{ o.onClick }}" style="height:44px;border-radius:10px;border:none;background:{{ o.bg }};color:{{ o.color }};font:600 15px var(--mono);cursor:pointer;padding:0">{{ o.label }}</button>
+              </sc-for>
+            </div>
+            <div style="font-size:11px;color:var(--mute);line-height:1.5">สัปดาห์ 2–8 จะเติมข้อมูลตัวอย่างของสัปดาห์ก่อนหน้าไว้ให้ดู</div>
+          </div>
+          <sc-if value="{{ weekResetNote }}" hint-placeholder-val="{{ false }}">
+            <div style="font-size:12px;color:var(--down)">การเปลี่ยนสัปดาห์จะล้างบันทึกของสัปดาห์ปัจจุบันในต้นแบบนี้</div>
+          </sc-if>
+          <button onClick="{{ startWeek }}" style="height:54px;border-radius:14px;border:none;background:var(--accent);color:var(--accent-ink);font:700 16px var(--sans);cursor:pointer">{{ startLabel }}</button>
+        </div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ hasToast }}" hint-placeholder-val="{{ false }}">
+      <div style="position:absolute;left:16px;right:16px;bottom:92px;background:var(--ink);color:var(--bg);padding:14px 16px;border-radius:14px;font-size:14px;font-weight:500;z-index:20;box-shadow:0 8px 24px rgba(0,0,0,.3)">{{ toast }}</div>
+    </sc-if>
+
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);border-top:1px solid var(--line);background:var(--surface);padding:6px 6px 14px">
+      <sc-for list="{{ tabs }}" as="t" hint-placeholder-count="4">
+        <button onClick="{{ t.onClick }}" style="height:56px;border:none;background:transparent;color:{{ t.color }};display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;cursor:pointer;font:500 11px var(--sans)">
+          <svg width="22" height="22" viewBox="0 0 24 24" style="fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round"><path d="{{ t.icon }}"></path></svg>
+          <span>{{ t.label }}</span>
+        </button>
+      </sc-for>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;theme&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;dark&quot;,&quot;light&quot;],&quot;default&quot;:&quot;dark&quot;,&quot;tsType&quot;:&quot;'dark'|'light'&quot;},&quot;defaultTab&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;dash&quot;,&quot;log&quot;,&quot;body&quot;,&quot;profile&quot;],&quot;default&quot;:&quot;dash&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;weightIncrement&quot;:{&quot;editor&quot;:&quot;float&quot;,&quot;default&quot;:2.5,&quot;min&quot;:0.5,&quot;max&quot;:5,&quot;step&quot;:0.5,&quot;unit&quot;:&quot;kg&quot;,&quot;tsType&quot;:&quot;number&quot;},&quot;alwaysShowWelcome&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;}}">
+const LIB = {
+  'Bench Press': { kg: [60, 62.5, 62.5, 65, 65, 67.5, 67.5], reps: 8, sets: 3, inc: 2.5 },
+  'Incline DB Press': { kg: [20, 20, 22, 22, 22, 24, 24], reps: 10, sets: 3, inc: 2 },
+  'Cable Fly': { kg: [12.5, 12.5, 15, 15, 15, 17.5, 17.5], reps: 12, sets: 3, inc: 2.5 },
+  'Triceps Pushdown': { kg: [20, 22.5, 22.5, 25, 25, 25, 27.5], reps: 12, sets: 3, inc: 2.5 },
+  'Squat': { kg: [80, 82.5, 85, 85, 87.5, 90, 92.5, 95], reps: 6, sets: 4, inc: 2.5 },
+  'Romanian Deadlift': { kg: [70, 70, 72.5, 75, 75, 77.5, 80, 80], reps: 8, sets: 3, inc: 2.5 },
+  'Leg Press': { kg: [140, 150, 150, 160, 160, 170, 170, 180], reps: 10, sets: 3, inc: 10 },
+  'Deadlift': { kg: [100, 102.5, 105, 107.5, 110, 112.5, 115], reps: 5, sets: 3, inc: 5 },
+  'Lat Pulldown': { kg: [50, 52.5, 52.5, 55, 55, 57.5, 57.5], reps: 10, sets: 3, inc: 2.5 },
+  'Barbell Row': { kg: [55, 57.5, 57.5, 60, 60, 62.5, 62.5], reps: 8, sets: 3, inc: 2.5 }
+};
+const TPLS = [
+  { id: 'chest', name: 'Chest Day', ex: ['Bench Press', 'Incline DB Press', 'Cable Fly', 'Triceps Pushdown'] },
+  { id: 'leg', name: 'Leg Day', ex: ['Squat', 'Romanian Deadlift', 'Leg Press'] },
+  { id: 'pull', name: 'Pull Day', ex: ['Deadlift', 'Lat Pulldown', 'Barbell Row'] }
+];
+const METRICS = {
+  weight: [78.4, 78.1, 77.6, 77.5, 77.0, 76.7, 76.3],
+  chest: [100, 100, 100.5, 101, 101, 101.5, 102],
+  waist: [86, 85.5, 85, 84.5, 84, 83.5, 83],
+  hip: [98, 98, 97.5, 97.5, 97, 97, 96.5],
+  arm: [34, 34, 34.5, 34.5, 35, 35, 35.5],
+  thigh: [56, 56, 56.5, 56.5, 57, 57, 57.5]
+};
+const MLAB = [['weight', 'น้ำหนัก', 'kg', -1], ['chest', 'อก', 'cm', 1], ['waist', 'เอว', 'cm', -1], ['hip', 'สะโพก', 'cm', -1], ['arm', 'แขน', 'cm', 1], ['thigh', 'ขา', 'cm', 1]];
+const SUMMARY = [
+  { w: 3, vol: 12400, min: 190, kcal: 1650 }, { w: 4, vol: 14100, min: 228, kcal: 1980 }, { w: 3, vol: 13250, min: 205, kcal: 1720 },
+  { w: 4, vol: 15600, min: 246, kcal: 2140 }, { w: 4, vol: 16050, min: 252, kcal: 2210 }, { w: 3, vol: 15200, min: 236, kcal: 1960 },
+  { w: 4, vol: 17300, min: 268, kcal: 2390 }
+];
+const TICKS = ['W1', 'W2', 'W3', 'W4', 'W5', 'W6', 'W7', 'W8'];
+const ICONS = {
+  dash: 'M4 20V10M10 20V4M16 20v-7M22 20H2',
+  log: 'M6.5 6.5v11M17.5 6.5v11M3 9.5v5M21 9.5v5M6.5 12h11',
+  body: 'M12 4a2 2 0 1 0 0 .01M8 21l1-8-3-4 6 1 6-1-3 4 1 8',
+  profile: 'M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM4 21c1.5-4 4.5-6 8-6s6.5 2 8 6'
+};
+const clone = o => JSON.parse(JSON.stringify(o));
+const fmt = n => Math.round(n).toLocaleString('en-US');
+const sgn = (n, d = 1) => (n > 0 ? '+' : n < 0 ? '−' : '±') + Math.abs(n).toFixed(d).replace(/\.0+$/, '');
+
+const CKEY = 'wft-custom-v1';
+const EMPTY_C = { ex: {}, tpls: [], metrics: [], cardio: [] };
+const loadCustom = () => { try { return { ...EMPTY_C, ...JSON.parse(localStorage.getItem(CKEY) || '{}') }; } catch (e) { return clone(EMPTY_C); } };
+const CUSTOM0 = loadCustom();
+const WKEY = 'wft-week-v1';
+const WEEK0 = (() => { try { const v = +localStorage.getItem(WKEY); return v >= 1 && v <= 8 ? v : null; } catch (e) { return null; } })();
+const DEMO_CARDIO = [{ type: 'วิ่ง', km: '5.2', min: '29', kcal: '340', day: 'อ. 20 ต.ค.' }, { type: 'ปั่นจักรยาน', km: '14', min: '35', kcal: '310', day: 'ส. 17 ต.ค.' }];
+const buildWeek = N => {
+  const hist = {}, metrics = {};
+  Object.entries(LIB).forEach(([k, v]) => { const a = Array(8).fill(null); for (let i = 0; i < N - 1; i++) a[i] = v.kg[i] ?? null; if (N === 8 && v.kg[7] != null) a[7] = v.kg[7]; hist[k] = a; });
+  Object.entries(METRICS).forEach(([k, v]) => { const a = Array(8).fill(null); for (let i = 0; i < N - 1; i++) a[i] = v[i]; metrics[k] = a; });
+  return { week: N, hist, metrics, cur: N === 8 ? { w: 2, vol: 9850, min: 118, kcal: 820 } : { w: 0, vol: 0, min: 0, kcal: 0 },
+    cardioLog: N === 1 ? [] : DEMO_CARDIO.slice(), cmpA: 0, cmpB: Math.max(0, N - 2), session: [], tpl: null, checked: false, body: {}, strengthEx: 'Bench Press', metricKey: 'weight' };
+};
+
+class Component extends DCLogic {
+  state = {
+    tab: this.props.defaultTab || 'dash', theme: this.props.theme || 'dark', logMode: 'weight',
+    showPicker: false, cardio: { type: 'วิ่ง', km: '', min: '', kcal: '' },
+    custom: CUSTOM0, sheet: null, cmpMode: 'slider', pos: 50,
+    profile: { height: '175', birth: '1995-04-12', sex: 'ชาย', goal: 'ลดน้ำหนัก', target: '72', freq: '4' },
+    toast: '', ...buildWeek(WEEK0 || 1),
+    weekPopup: !WEEK0 || !!this.props.alwaysShowWelcome, weekPick: WEEK0 || 1, weekSet: !!WEEK0
+  };
+  startWeek = () => {
+    const N = this.state.weekPick; try { localStorage.setItem(WKEY, String(N)); } catch (e) {}
+    this.setState({ ...buildWeek(N), weekPopup: false, weekSet: true, tab: 'dash' });
+    this.showToast(N === 1 ? 'เริ่มสัปดาห์ที่ 1 แล้ว · ไปที่แท็บบันทึกเพื่อเริ่มฝึก' : `เริ่มที่สัปดาห์ที่ ${N}`);
+  };
+  prevOf(name) { const h = this.state.hist[name] || [], ci = this.state.week - 1; for (let i = ci - 1; i >= 0; i--) if (h[i] != null) return h[i]; const c = this.state.custom.ex[name]; return c && +c.start ? +c.start : null; }
+  scrollRef = React.createRef();
+  componentDidUpdate(pp, ps) {
+    const el = this.scrollRef.current;
+    if (el && ps && (ps.tab !== this.state.tab || ps.logMode !== this.state.logMode)) { el.style.scrollBehavior = 'auto'; el.scrollTop = 0; el.style.scrollBehavior = ''; } if (pp.theme !== this.props.theme && this.props.theme) this.setState({ theme: this.props.theme }); }
+  lib() { const o = { ...LIB }; Object.entries(this.state.custom.ex).forEach(([n, e]) => o[n] = { reps: +e.reps || 10, sets: +e.sets || 3, inc: +e.inc || 2.5 }); return o; }
+  mlab() { return [...MLAB, ...this.state.custom.metrics]; }
+  inc(name) { const L = this.lib()[name]; return this.props.weightIncrement && L.inc === 2.5 ? this.props.weightIncrement : L.inc; }
+  mkEx(name) {
+    const L = this.lib()[name], prev = this.prevOf(name), sugg = prev != null ? prev + this.inc(name) : '';
+    return { name, prev, rpe: null, note: '', sets: Array.from({ length: L.sets }, () => ({ kg: String(sugg), reps: String(L.reps), done: false })) };
+  }
+  showToast(t) { this.setState({ toast: t }); clearTimeout(this._t); this._t = setTimeout(() => this.setState({ toast: '' }), 2400); }
+  updEx(i, fn) { this.setState(s => { const session = clone(s.session); fn(session[i]); return { session }; }); }
+  saveSession = () => {
+    const s = this.state; let vol = 0, done = 0; const hist = clone(s.hist);
+    s.session.forEach(ex => {
+      const d = ex.sets.filter(x => x.done); if (!d.length) return;
+      done += d.length; d.forEach(x => vol += (+x.kg || 0) * (+x.reps || 0));
+      const top = Math.max(...d.map(x => +x.kg || 0)); const ci = s.week - 1; hist[ex.name] = hist[ex.name] || Array(8).fill(null); hist[ex.name][ci] = Math.max(hist[ex.name][ci] || 0, top);
+    });
+    if (!done) return this.showToast('ติ๊ก ✓ เซ็ตที่ทำเสร็จก่อนบันทึก');
+    const first = s.session.find(e => e.sets.some(x => x.done)).name;
+    this.setState({ hist, session: [], tpl: null, strengthEx: first, cur: { w: s.cur.w + 1, vol: s.cur.vol + vol, min: s.cur.min + done * 3, kcal: s.cur.kcal + done * 9 } });
+    this.showToast(`บันทึกแล้ว · ${done} เซ็ต · ${fmt(vol)} kg`);
+  };
+  saveCardio = () => {
+    const c = this.state.cardio;
+    if (!(+c.km) || !(+c.min)) return this.showToast('กรอกระยะทางและเวลาก่อน');
+    const kcal = +c.kcal || Math.round(+c.km * 62);
+    this.setState(s => ({ cardio: { ...s.cardio, km: '', min: '', kcal: '' }, cardioLog: [{ ...c, kcal: String(kcal), day: 'พฤ. 22 ต.ค.' }, ...s.cardioLog], cur: { ...s.cur, w: s.cur.w + 1, min: s.cur.min + +c.min, kcal: s.cur.kcal + kcal } }));
+    this.showToast(`บันทึก ${c.type} ${c.km} km แล้ว`);
+  };
+  saveBody = () => {
+    this.setState(s => { const m = clone(s.metrics); this.mlab().forEach(([k]) => { const v = parseFloat(s.body[k]); const ci = s.week - 1; m[k] = m[k] || Array(8).fill(null); m[k][ci] = isNaN(v) ? (ci > 0 ? m[k][ci - 1] : null) : v; }); return { metrics: m, checked: true }; });
+    this.showToast(`บันทึกสัดส่วนสัปดาห์ที่ ${this.state.week} แล้ว`);
+  };
+  persist(c) { try { localStorage.setItem(CKEY, JSON.stringify(c)); } catch (e) {} }
+  openSheet = mode => this.setState({ sheet: { mode, name: '', unit: 'cm', dir: -1, sets: '3', reps: '10', inc: '2.5', start: '', picks: [], err: '' } });
+  setSheet = patch => this.setState(s => ({ sheet: { ...s.sheet, ...patch } }));
+  submitSheet = () => {
+    const s = this.state, sh = s.sheet, name = sh.name.trim(), c = clone(s.custom), err = m => this.setSheet({ err: m });
+    if (!name) return err('กรุณาตั้งชื่อ');
+    if (sh.mode === 'exercise') {
+      if (this.lib()[name]) return err('มีท่านี้อยู่แล้ว');
+      c.ex[name] = { sets: sh.sets, reps: sh.reps, inc: sh.inc, start: sh.start };
+      const hist = s.hist;
+      this.setState({ custom: c, hist, sheet: null }, () => { if (s.tab === 'log') this.setState(st => ({ session: [...st.session, this.mkEx(name)], showPicker: false })); });
+    } else if (sh.mode === 'routine') {
+      if (!sh.picks.length) return err('เลือกอย่างน้อย 1 ท่า');
+      c.tpls.push({ id: 'c' + Date.now(), name, ex: sh.picks }); this.setState({ custom: c, sheet: null });
+    } else if (sh.mode === 'metric') {
+      if (this.mlab().some(m => m[1] === name)) return err('มีสัดส่วนนี้อยู่แล้ว');
+      c.metrics.push(['c' + Date.now(), name, sh.unit, sh.dir]); this.setState({ custom: c, sheet: null });
+    } else {
+      if (['วิ่ง', 'ปั่นจักรยาน', 'เดินเร็ว', ...c.cardio].includes(name)) return err('มีประเภทนี้อยู่แล้ว');
+      c.cardio.push(name); this.setState(st => ({ custom: c, sheet: null, cardio: { ...st.cardio, type: name } }));
+    }
+    this.persist(c); this.showToast(`เพิ่ม “${name}” แล้ว`);
+  };
+  removeCustom(kind, key) {
+    const c = clone(this.state.custom);
+    if (kind === 'ex') { delete c.ex[key]; c.tpls.forEach(t => t.ex = t.ex.filter(n => n !== key)); c.tpls = c.tpls.filter(t => t.ex.length); }
+    if (kind === 'tpl') c.tpls = c.tpls.filter(t => t.id !== key);
+    if (kind === 'metric') c.metrics = c.metrics.filter(m => m[0] !== key);
+    if (kind === 'cardio') c.cardio = c.cardio.filter(x => x !== key);
+    this.persist(c);
+    this.setState(s => {
+      const hist = { ...s.hist }; if (kind === 'ex') delete hist[key];
+      return { custom: c, hist, session: kind === 'ex' ? s.session.filter(e => e.name !== key) : s.session,
+        metricKey: s.metricKey === key ? 'weight' : s.metricKey, strengthEx: s.strengthEx === key ? 'Bench Press' : s.strengthEx,
+        cardio: kind === 'cardio' && s.cardio.type === key ? { ...s.cardio, type: 'วิ่ง' } : s.cardio };
+    });
+  }
+  chart(src, target) {
+    const W = 320, H = 150;
+    if (!src.length) return { line: '', area: '', lx: -20, ly: -20, targetY: -10 };
+    const vals = src.map(p => p[1]), all = target != null ? [...vals, target] : vals;
+    let lo = Math.min(...all), hi = Math.max(...all); const pad = (hi - lo) * 0.15 || 1; lo -= pad; hi += pad;
+    const x = i => 20 + i * (W - 40) / 7, y = v => 10 + (H - 24) * (1 - (v - lo) / (hi - lo));
+    const pts = src.map(([i, v]) => [x(i), y(v)]);
+    const line = pts.map((p, i) => (i ? 'L' : 'M') + p[0].toFixed(1) + ' ' + p[1].toFixed(1)).join(' ');
+    const last = pts[pts.length - 1];
+    return { line, area: pts.length > 1 ? `${line} L${last[0].toFixed(1)} ${H} L${pts[0][0].toFixed(1)} ${H} Z` : '', lx: last[0], ly: last[1], targetY: target != null ? y(target) : -10 };
+  }
+  renderVals() {
+    const s = this.state, P = s.profile, A = 'var(--accent)', AI = 'var(--accent-ink)';
+    const chip = (on, onClick, label) => ({ label, onClick, bg: on ? A : 'transparent', color: on ? AI : 'var(--ink)', border: on ? A : 'var(--line)' });
+    const seg = (on, onClick, label) => ({ label, onClick, bg: on ? 'var(--surface)' : 'transparent', color: on ? 'var(--ink)' : 'var(--mute)' });
+    const set = (k, v) => this.setState({ [k]: v });
+    const setP = k => e => { const v = e.target.value; this.setState(st => ({ profile: { ...st.profile, [k]: v } })); };
+
+    const N = s.week, ci = N - 1, pi = N - 2, wl = i => 'W' + String(i + 1).padStart(2, '0');
+    const nn = (arr, upto) => (arr || []).slice(0, upto + 1).map((v, i) => [i, v]).filter(p => p[1] != null);
+    const wPts = nn(s.metrics.weight, ci), latestW = wPts.length ? wPts[wPts.length - 1][1] : null, startW = wPts.length ? wPts[0][1] : null, tgt = parseFloat(P.target) || latestW || 0;
+    const goalP = latestW == null ? 0 : Math.max(0, Math.min(1, (startW - latestW) / ((startW - tgt) || 1)));
+    const prevS = pi >= 0 ? SUMMARY[pi] : null, c = s.cur;
+    const dt = (a, k, unit) => { if (!prevS) return { delta: 'สัปดาห์แรก', color: 'var(--mute)' }; const n = a - prevS[k]; return { delta: `${sgn(n, 0)}${unit} vs ${wl(pi)}`, color: n >= 0 ? 'var(--up)' : 'var(--mute)' }; };
+    const tiles = [
+      { label: 'Workouts', value: `${c.w}/${P.freq}`, unit: 'ครั้ง', ...dt(c.w, 'w', '') },
+      { label: 'Total Volume', value: fmt(c.vol), unit: 'kg', ...dt(c.vol, 'vol', ' kg') },
+      { label: 'Total Time', value: fmt(c.min), unit: 'min', ...dt(c.min, 'min', ' min') },
+      { label: 'Calories', value: fmt(c.kcal), unit: 'kcal', ...dt(c.kcal, 'kcal', '') }
+    ];
+    const vols = TICKS.map((_, i) => i < ci ? SUMMARY[i].vol : i === ci ? c.vol : null), vmax = Math.max(1, ...vols.filter(v => v != null));
+    const volBars = vols.map((v, i) => v == null ? { h: '0%', bg: 'transparent', label: '' } : { h: Math.max(3, v / vmax * 100) + '%', bg: i === ci ? A : 'var(--surface2)', label: (v / 1000).toFixed(1) + 'k' });
+
+    const ML = this.mlab(), LB = this.lib();
+    const [mk, mlabel, munit, dir] = ML.find(m => m[0] === s.metricKey) || MLAB[0];
+    const mp = nn(s.metrics[mk], ci), isW = mk === 'weight', ch = this.chart(mp, isW && mp.length ? tgt : null);
+    const mlast = mp.length ? mp[mp.length - 1][1] : null, wk = mp.length > 1 ? mlast - mp[mp.length - 2][1] : 0, tot = mp.length ? mlast - mp[0][1] : 0;
+    const mChart = { ...ch, last: mlast ?? '—', unit: munit, wk: mp.length > 1 ? sgn(wk) : '—', total: mp.length > 1 ? sgn(tot) : '—', wkColor: wk * dir > 0 ? 'var(--up)' : wk === 0 ? 'var(--mute)' : 'var(--down)', hasTarget: isW && mp.length > 0, targetOpacity: isW && mp.length ? 0.7 : 0 };
+
+    const exWithData = Object.keys(s.hist).filter(n => nn(s.hist[n], ci).length);
+    const sx = exWithData.includes(s.strengthEx) ? s.strengthEx : exWithData[0];
+    const hp = sx ? nn(s.hist[sx], ci) : [];
+    let str = { latest: '—', delta: '', color: 'var(--mute)', bars: [] };
+    if (hp.length) {
+      const vs = hp.map(p => p[1]), hmax = Math.max(...vs), hmin = Math.min(...vs) * 0.8, rng = (hmax - hmin) || 1;
+      const li = hp[hp.length - 1][0], lv = hp[hp.length - 1][1], pv = hp.length > 1 ? hp[hp.length - 2][1] : null, sd = pv != null ? lv - pv : 0;
+      str = { latest: lv, delta: pv != null ? `${sgn(sd)} kg vs สัปดาห์ก่อน` : 'ครั้งแรก · baseline', color: sd > 0 ? 'var(--up)' : 'var(--mute)',
+        bars: TICKS.map((_, i) => { const v = i <= ci ? s.hist[sx][i] : null; return v != null ? { h: ((v - hmin) / rng * 85 + 15) + '%', label: v, bg: i === li ? A : 'var(--surface2)', border: 'transparent' } : { h: '15%', label: i <= ci ? '—' : '', bg: 'transparent', border: i <= ci ? 'var(--mute)' : 'transparent' }; }) };
+    }
+    const cmpRows = Object.keys(s.hist).filter(n => s.hist[n][ci] != null || (pi >= 0 && s.hist[n][pi] != null)).map(n => { const k = s.hist[n], cu = k[ci], pr = pi >= 0 ? k[pi] : null, d = cu != null && pr != null ? cu - pr : null; return { name: n, prev: pr ?? '—', cur: cu ?? '—', delta: d == null ? '' : sgn(d), color: d > 0 ? 'var(--up)' : d < 0 ? 'var(--down)' : 'var(--mute)' }; });
+
+    const session = s.session.map((ex, i) => {
+      const L = LB[ex.name] || { reps: '', sets: '' }, top = Math.max(...ex.sets.map(x => +x.kg || 0)), d = ex.prev != null ? top - ex.prev : null;
+      return {
+        name: ex.name, note: ex.note, ref: ex.prev != null ? `${ex.prev} kg × ${L.reps} × ${L.sets} เซ็ต` : 'ท่าใหม่ · ยังไม่มีข้อมูล',
+        dLabel: d == null ? 'สัปดาห์แรก · ใช้เป็น baseline' : d > 0 ? `${sgn(d)} kg จากสัปดาห์ก่อน` : d === 0 ? 'เท่าเดิม · ลองเพิ่ม 1 rep' : `${sgn(d)} kg (deload)`, dColor: d == null ? 'var(--mute)' : d > 0 ? 'var(--up)' : d === 0 ? 'var(--mute)' : 'var(--down)',
+        rpeLabel: ex.rpe ? `${ex.rpe}/10` : '—',
+        remove: () => this.setState(st => ({ session: st.session.filter((_, j) => j !== i) })),
+        addSet: () => this.updEx(i, e => e.sets.push({ ...e.sets[e.sets.length - 1], done: false })),
+        onNote: ev => { const v = ev.target.value; this.updEx(i, e => e.note = v); },
+        rpeOpts: Array.from({ length: 10 }, (_, r) => { const n = r + 1, on = ex.rpe === n; return { n, onClick: () => this.updEx(i, e => e.rpe = n), bg: on ? A : 'var(--surface2)', color: on ? AI : 'var(--mute)' }; }),
+        sets: ex.sets.map((st, j) => ({
+          num: j + 1, kg: st.kg, reps: st.reps, op: st.done ? 1 : 0.92,
+          onKg: ev => { const v = ev.target.value; this.updEx(i, e => e.sets[j].kg = v); },
+          onReps: ev => { const v = ev.target.value; this.updEx(i, e => e.sets[j].reps = v); },
+          toggle: () => this.updEx(i, e => e.sets[j].done = !e.sets[j].done),
+          bg: st.done ? A : 'transparent', color: st.done ? AI : 'var(--mute)', border: st.done ? A : 'var(--line)'
+        }))
+      };
+    });
+    const sessionVol = s.session.reduce((a, ex) => a + ex.sets.filter(x => x.done).reduce((b, x) => b + (+x.kg || 0) * (+x.reps || 0), 0), 0);
+    const inSession = s.session.map(e => e.name);
+
+    const cc = s.cardio, setC = k => e => { const v = e.target.value; this.setState(st => ({ cardio: { ...st.cardio, [k]: v } })); };
+    const paceN = +cc.km && +cc.min ? +cc.min / +cc.km : 0;
+    const pace = paceN ? `${Math.floor(paceN)}:${String(Math.round((paceN % 1) * 60)).padStart(2, '0')}` : '–:––';
+
+    const bodyFields = ML.map(([k, l, u]) => ({ label: l, unit: u, last: pi >= 0 ? (s.metrics[k] || [])[pi] ?? '—' : '—', value: s.body[k] ?? '', onChange: e => { const v = e.target.value; this.setState(st => ({ body: { ...st.body, [k]: v } })); } }));
+
+    const slider = s.cmpMode === 'slider';
+    const photoSlots = TICKS.map((t, i) => {
+      const isA = i === s.cmpA, isB = i === s.cmpB && !isA;
+      const base = { id: `progress-w${i + 1}`, ph: `อัปโหลดรูป ${t}`, tag: t, tagLeft: '10px', pad: '0', clip: 'none', z: 1 };
+      if (!isA && !isB) return { ...base, left: '0', width: '100%', display: 'none' };
+      if (slider) return { ...base, left: '0', width: '100%', display: 'block', z: isB ? 2 : 1, clip: isB ? `inset(0 0 0 ${s.pos}%)` : 'none', tagLeft: isB ? 'auto' : '10px', tag: isB ? t : t };
+      return { ...base, left: isA ? '0' : '50%', width: '50%', display: 'block', pad: isA ? '0 1px 0 0' : '0 0 0 1px' };
+    }).map(p => p.z === 2 ? { ...p, tagLeft: 'calc(100% - 46px)' } : p);
+    const pick = (k, cur) => TICKS.slice(0, N).map((t, i) => ({ label: t.replace('W', ''), onClick: () => set(k, i), bg: i === cur ? A : 'var(--surface2)', color: i === cur ? AI : 'var(--mute)' }));
+    const wa = s.metrics.weight[s.cmpA], wb = s.metrics.weight[s.cmpB];
+    const xa = s.metrics.waist[s.cmpA], xb = s.metrics.waist[s.cmpB];
+    const photoDiff = s.cmpA !== s.cmpB && wa != null && wb != null ? `W${s.cmpA + 1} → W${s.cmpB + 1}: ${sgn(wb - wa)} kg` + (xa != null && xb != null ? `, เอว ${sgn(xb - xa)} cm` : '') : 'รูปจะเทียบได้เมื่อมีอย่างน้อย 2 สัปดาห์';
+
+    const born = new Date(P.birth), age = isNaN(born) ? '—' : Math.floor((new Date('2026-10-22') - born) / 31557600000);
+    const bmi = latestW && +P.height ? (latestW / Math.pow(+P.height / 100, 2)).toFixed(1) : '—';
+    const wp = s.weekPick;
+    const goals = [['ลดน้ำหนัก', 'เน้น calorie deficit + cardio'], ['สร้างกล้ามเนื้อ', 'เน้น progressive overload'], ['เพิ่มความอึด', 'เน้น cardio และ volume']];
+
+    const C = s.custom;
+    const customItems = [
+      ...C.tpls.map(t => ({ kind: 'Routine', label: t.name, sub: t.ex.length + ' ท่า', remove: () => this.removeCustom('tpl', t.id) })),
+      ...Object.entries(C.ex).map(([n, e]) => ({ kind: 'ท่าฝึก', label: n, sub: `${e.sets}×${e.reps} · +${e.inc} kg/สัปดาห์`, remove: () => this.removeCustom('ex', n) })),
+      ...C.metrics.map(m => ({ kind: 'สัดส่วน', label: m[1], sub: m[2], remove: () => this.removeCustom('metric', m[0]) })),
+      ...C.cardio.map(x => ({ kind: 'Cardio', label: x, sub: '', remove: () => this.removeCustom('cardio', x) }))
+    ];
+    const sh = s.sheet || {}, mode = sh.mode, picks = sh.picks || [];
+    const SH = { routine: ['สร้าง Routine', 'ชื่อ Routine', 'เช่น Push Day, Full Body'], exercise: ['เพิ่มท่าฝึกใหม่', 'ชื่อท่า', 'เช่น Hip Thrust'], metric: ['เพิ่มสัดส่วนที่จะวัด', 'ชื่อสัดส่วน', 'เช่น น่อง, คอ, % ไขมัน'], cardio: ['เพิ่มประเภท Cardio', 'ชื่อกิจกรรม', 'เช่น ว่ายน้ำ, กระโดดเชือก'] }[mode] || ['', '', ''];
+    const sheetVals = {
+      sheetOpen: !!s.sheet, sheetTitle: SH[0], sheetNameLabel: SH[1], sheetNamePh: SH[2], sheetName: sh.name || '', sheetErr: sh.err || '', hasSheetErr: !!sh.err,
+      onSheetName: e => this.setSheet({ name: e.target.value, err: '' }), closeSheet: () => this.setState({ sheet: null }), submitSheet: this.submitSheet,
+      isExSheet: mode === 'exercise', isRoutineSheet: mode === 'routine', isMetricSheet: mode === 'metric',
+      sheetNums: [['sets', 'Sets'], ['reps', 'Reps'], ['inc', 'เพิ่มต่อสัปดาห์ (kg)'], ['start', 'น้ำหนักเริ่มต้น (kg)']].map(([k, l]) => ({ label: l, value: sh[k] ?? '', ph: k === 'start' ? 'ไม่บังคับ' : '', onChange: e => this.setSheet({ [k]: e.target.value }) })),
+      unitOpts: ['cm', 'kg', '%', 'mm'].map(u => seg(sh.unit === u, () => this.setSheet({ unit: u }), u)),
+      dirOpts: [[-1, 'ลดลง = ดี'], [1, 'เพิ่มขึ้น = ดี']].map(([d, l]) => seg(sh.dir === d, () => this.setSheet({ dir: d }), l)),
+      routinePicks: Object.keys(LB).map(n => { const on = picks.includes(n); return chip(on, () => this.setSheet({ picks: on ? picks.filter(x => x !== n) : [...picks, n], err: '' }), n); }),
+      sheetSubmitLabel: mode === 'routine' ? `บันทึก Routine · ${picks.length} ท่า` : 'เพิ่ม'
+    };
+    return {
+      ...sheetVals, scrollRef: this.scrollRef,
+      weekPopup: s.weekPopup, canCloseWeek: s.weekSet, closeWeek: () => s.weekSet && this.setState({ weekPopup: false }),
+      openWeek: () => this.setState({ weekPopup: true, weekPick: s.week }),
+      weekTitle: s.weekSet ? 'เปลี่ยนสัปดาห์' : 'เริ่มต้นใช้งาน',
+      w1: { bg: wp === 1 ? 'var(--surface2)' : 'var(--surface)', border: wp === 1 ? A : 'var(--line)', dot: wp === 1 ? A : 'transparent', onClick: () => this.setState({ weekPick: 1 }) },
+      weekOpts: [2, 3, 4, 5, 6, 7, 8].map(n => ({ label: n, onClick: () => this.setState({ weekPick: n }), bg: wp === n ? A : 'var(--surface2)', color: wp === n ? AI : 'var(--ink)' })),
+      startWeek: this.startWeek, startLabel: wp === 1 ? 'เริ่มสัปดาห์ที่ 1' : `เริ่มที่สัปดาห์ที่ ${wp}`,
+      weekResetNote: s.weekSet, weekHeader: 'WEEK ' + String(N).padStart(2, '0'), weekLabel: wl(ci), prevWeekLabel: pi >= 0 ? wl(pi) : '—',
+      hasMData: mp.length > 0, noMData: !mp.length, hasStr: hp.length > 0, noStr: !hp.length, cmpEmpty: !cmpRows.length,
+      openRoutine: () => this.openSheet('routine'), openExercise: () => this.openSheet('exercise'), openMetric: () => this.openSheet('metric'), openCardio: () => this.openSheet('cardio'),
+      customAdds: [['routine', 'Routine'], ['exercise', 'ท่าฝึก'], ['metric', 'สัดส่วน'], ['cardio', 'Cardio']].map(([m, l]) => ({ label: '+ ' + l, onClick: () => this.openSheet(m) })),
+      customItems, noCustom: !customItems.length,
+      customExItems: customItems.filter(i => i.kind === 'ท่าฝึก'), hasCustomEx: customItems.some(i => i.kind === 'ท่าฝึก'),
+      theme: s.theme, themeLabel: s.theme === 'dark' ? 'DARK' : 'LIGHT', themeOnOff: s.theme === 'dark' ? 'ON' : 'OFF',
+      toggleTheme: () => set('theme', s.theme === 'dark' ? 'light' : 'dark'),
+      isDash: s.tab === 'dash', isLog: s.tab === 'log', isBody: s.tab === 'body', isProfile: s.tab === 'profile',
+      tabs: [['dash', 'ภาพรวม'], ['log', 'บันทึก'], ['body', 'ร่างกาย'], ['profile', 'โปรไฟล์']].map(([id, label]) => ({ label, icon: ICONS[id], color: s.tab === id ? A : 'var(--mute)', onClick: () => set('tab', id) })),
+      goal: P.goal, latestWeight: latestW ?? '—', targetWeight: tgt || '—', goalPct: (goalP * 100) + '%', goalPctLabel: Math.round(goalP * 100) + '%',
+      tiles, volBars, weekTicks: TICKS,
+      metricChips: ML.map(([k, l]) => chip(k === s.metricKey, () => set('metricKey', k), l)), mChart,
+      exChips: exWithData.map(n => chip(n === sx, () => set('strengthEx', n), n)), str, cmpRows,
+      goPhotos: () => set('tab', 'body'),
+      logModes: [['weight', 'Weight Training'], ['cardio', 'Cardio']].map(([k, l]) => seg(s.logMode === k, () => set('logMode', k), l)),
+      isWeight: s.logMode === 'weight', isCardio: s.logMode === 'cardio',
+      tpls: [...TPLS, ...s.custom.tpls].map(t => ({ name: t.name, count: t.ex.length, bg: s.tpl === t.id ? 'var(--surface2)' : 'var(--surface)', border: s.tpl === t.id ? A : 'var(--line)', onClick: () => this.setState({ tpl: t.id, session: t.ex.map(n => this.mkEx(n)), showPicker: false }) })),
+      session, sessionEmpty: !s.session.length, sessionHas: s.session.length > 0, sessionVol: fmt(sessionVol), saveSession: this.saveSession,
+      showPicker: s.showPicker, togglePicker: () => set('showPicker', !s.showPicker),
+      pickList: Object.keys(LB).filter(n => !inSession.includes(n)).map(n => ({ name: n, onClick: () => this.setState(st => ({ session: [...st.session, this.mkEx(n)], showPicker: false })) })),
+      cardioTypes: ['วิ่ง', 'ปั่นจักรยาน', 'เดินเร็ว', ...s.custom.cardio].map(t => chip(cc.type === t, () => this.setState(st => ({ cardio: { ...st.cardio, type: t } })), t)),
+      cardioFields: [{ label: 'ระยะทาง (km)', ph: '0.0', value: cc.km, onChange: setC('km') }, { label: 'เวลา (min)', ph: '0', value: cc.min, onChange: setC('min') }, { label: 'Calories (kcal)', ph: +cc.km ? String(Math.round(+cc.km * 62)) : 'auto', value: cc.kcal, onChange: setC('kcal') }],
+      pace, saveCardio: this.saveCardio, cardioLog: s.cardioLog,
+      bodyFields, saveBody: this.saveBody, bodyBtn: s.checked ? 'อัปเดต Check-in สัปดาห์นี้' : 'บันทึก Check-in สัปดาห์นี้',
+      cmpModes: [['slider', 'Slider'], ['side', 'Side by side']].map(([k, l]) => seg(s.cmpMode === k, () => set('cmpMode', k), l)),
+      isSlider: slider, photoSlots, pos: s.pos, posPct: s.pos + '%', onPos: e => set('pos', +e.target.value),
+      pickA: pick('cmpA', s.cmpA), pickB: pick('cmpB', s.cmpB), photoDiff,
+      p: P, onHeight: setP('height'), onBirth: setP('birth'), onTarget: setP('target'), onFreq: setP('freq'),
+      profStats: [{ label: 'อายุ', value: age }, { label: 'BMI', value: bmi }, { label: 'น้ำหนักล่าสุด', value: latestW ?? '—' }],
+      sexOpts: ['ชาย', 'หญิง', 'อื่นๆ'].map(o => seg(P.sex === o, () => this.setState(st => ({ profile: { ...st.profile, sex: o } })), o)),
+      goalOpts: goals.map(([g, sub]) => { const on = P.goal === g; return { label: g, sub, border: on ? A : 'var(--line)', dot: on ? A : 'transparent', onClick: () => this.setState(st => ({ profile: { ...st.profile, goal: g } })) }; }),
+      hasToast: !!s.toast, toast: s.toast
+    };
+  }
+}
+</script>
+</body>
+</html>
