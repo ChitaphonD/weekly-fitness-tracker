@@ -32,3 +32,5 @@ export async function shrink(file: File, max = 1400): Promise<Blob> {
   c.getContext('2d')!.drawImage(bmp, 0, 0, c.width, c.height);
   return new Promise(r => c.toBlob(b => r(b || file), 'image/jpeg', 0.86));
 }
+
+export const clearPhotos = () => run<void>('readwrite', s => s.clear());

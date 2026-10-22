@@ -186,3 +186,4 @@ input::placeholder { color: var(--mute); opacity: .6 }
 @keyframes rise { from { transform: translateY(16px); opacity: 0 } }
 @keyframes pop { from { transform: scale(.96); opacity: 0 } }
 @media (prefers-reduced-motion: reduce) { .scrim, .sheet, .modal, .toast { animation: none } }
+.link-btn { border: none; background: none; padding: 8px 0; color: var(--accent); font: 500 13px var(--sans); cursor: pointer }

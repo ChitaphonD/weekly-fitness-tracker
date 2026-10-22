@@ -1,5 +1,7 @@
 import { initializeApp } from 'firebase/app';
 import { getAnalytics, isSupported } from 'firebase/analytics';
+import { getAuth } from 'firebase/auth';
+import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager } from 'firebase/firestore';
 
 // Firebase web config is public by design; access is controlled by Firebase security rules.
 const firebaseConfig = {
@@ -13,6 +15,9 @@ const firebaseConfig = {
 };
 
 export const app = initializeApp(firebaseConfig);
+export const auth = getAuth(app);
+// The local cache lets a signed-in user open the app offline.
+export const db = initializeFirestore(app, { localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }) });
 
 // Analytics needs cookies/IndexedDB; skip it where the browser doesn't allow them.
 isSupported().then(ok => { if (ok) getAnalytics(app); }).catch(() => {});

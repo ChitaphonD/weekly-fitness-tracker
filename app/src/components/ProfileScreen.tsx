@@ -1,3 +1,6 @@
+import { signOut } from 'firebase/auth';
+import { auth } from '../firebase';
+import { flushSave } from '../cloud';
 import { GOALS, SEXES, TODAY } from '../data';
 import { wl } from '../format';
 import type { Profile, Tracker } from '../store';
@@ -61,6 +64,12 @@ export function ProfileScreen({ t }: { t: Tracker }) {
       </button>
       <button className="list-btn" onClick={() => set({ theme: s.theme === 'dark' ? 'light' : 'dark' })}>
         <span>Dark Mode</span><span className="mono mute">{s.theme === 'dark' ? 'ON' : 'OFF'}</span>
+      </button>
+
+      <div className="label" style={{ marginTop: 4 }}>บัญชี</div>
+      <button className="list-btn" onClick={async () => { await flushSave(); await signOut(auth); }}>
+        <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis' }}>{auth.currentUser?.email ?? 'ผู้ใช้'}</span>
+        <span style={{ color: 'var(--down)', flexShrink: 0 }}>ออกจากระบบ</span>
       </button>
     </div>
   );

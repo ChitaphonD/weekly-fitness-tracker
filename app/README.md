@@ -28,4 +28,9 @@ npm run build    # type-check + production build in dist/
 | `wft-theme-v1` | `dark` / `light` |
 | IndexedDB `wft-photos` | progress photos keyed `progress-w1` … `progress-w8` |
 
-There is no backend yet. `project/Tech Spec.dc.html` has the proposed PostgreSQL schema and API.
+## Accounts and sync
+
+Sign-in uses Firebase Authentication (Google or email/password). `src/cloud.ts` mirrors the
+localStorage keys above into Firestore at `users/{uid}` (one JSON string field, `local`) and
+loads them back on sign-in. `firestore.rules` limits each user to their own document.
+Progress photos stay on the device.
