@@ -31,13 +31,21 @@ function WeightLog({ t }: { t: Tracker }) {
     <div className="stack-12">
       <div className="label">Quick Routine</div>
       <div className="hscroll" style={{ gap: 8, scrollPadding: '0 16px', margin: '0 -12px 0 -16px' }}>
-        {[...TPLS, ...s.custom.tpls].map(tp => (
+        {[...s.custom.tpls, ...TPLS].map(tp => (
           <button key={tp.id} className={'tpl' + (s.tpl === tp.id ? ' on' : '')} onClick={() => t.applyTemplate(tp)}>
             <span style={{ fontWeight: 600, fontSize: 14 }}>{tp.name}</span>
-            <span style={{ fontSize: 11, color: 'var(--mute)' }}>{tp.ex.length} ท่า</span>
+            <span style={{ fontSize: 11, color: 'var(--mute)' }}>{tp.ex.length} ท่า{tp.sets ? ' · บันทึกไว้' : ''}</span>
           </button>
         ))}
       </div>
+      {s.custom.tpls.length > 0 && (
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+          {s.custom.tpls.map(tp => (
+            <button key={tp.id} className="chip" style={{ fontSize: 12, padding: '0 12px', height: 32 }}
+              onClick={() => { if (window.confirm(`ลบโปรแกรม “${tp.name}”?`)) t.removeCustom('tpl', tp.id); }}>ลบ {tp.name} ×</button>
+          ))}
+        </div>
+      )}
 
       {!s.session.length && (
         <div style={{ padding: '28px 16px', border: '1px dashed var(--line)', borderRadius: 16, textAlign: 'center', color: 'var(--mute)', fontSize: 13, lineHeight: 1.6 }}>
@@ -117,7 +125,13 @@ function WeightLog({ t }: { t: Tracker }) {
         </div>
       )}
       {s.session.length > 0 && (
-        <button className="btn-primary" onClick={t.saveSession}>บันทึก Workout · {fmt(sessionVol)} kg</button>
+        <>
+          <button className="btn-dashed" onClick={() => {
+            const cur = s.custom.tpls.find(tp => tp.id === s.tpl);
+            t.openSheet('routine', { name: cur?.name ?? '', picks: inSession });
+          }}>{s.custom.tpls.some(tp => tp.id === s.tpl) ? 'อัปเดตโปรแกรมนี้' : 'บันทึกเป็นโปรแกรม'} (ท่า · เซ็ต · kg · reps)</button>
+          <button className="btn-primary" onClick={t.saveSession}>บันทึก Workout · {fmt(sessionVol)} kg</button>
+        </>
       )}
     </div>
   );

@@ -12,7 +12,7 @@ function useEscape(onClose: () => void, active = true) {
 }
 
 const SHEET_COPY: Record<Sheet['mode'], [string, string, string]> = {
-  routine: ['สร้าง Routine', 'ชื่อ Routine', 'เช่น Push Day, Full Body'],
+  routine: ['บันทึกโปรแกรม', 'ชื่อโปรแกรม', 'เช่น คุณเอ · Push Day'],
   exercise: ['เพิ่มท่าฝึกใหม่', 'ชื่อท่า', 'เช่น Hip Thrust'],
   metric: ['เพิ่มสัดส่วนที่จะวัด', 'ชื่อสัดส่วน', 'เช่น น่อง, คอ, % ไขมัน'],
   cardio: ['เพิ่มประเภท Cardio', 'ชื่อกิจกรรม', 'เช่น ว่ายน้ำ, กระโดดเชือก']
@@ -55,6 +55,9 @@ export function CustomSheet({ t, sheet }: { t: Tracker; sheet: Sheet }) {
           </>
         )}
         {sheet.mode === 'routine' && (
+          <div style={{ fontSize: 11, color: 'var(--mute)', lineHeight: 1.5 }}>เก็บท่า จำนวนเซ็ต น้ำหนัก และ reps ที่กรอกไว้ตอนนี้ · ใช้ชื่อเดิมเพื่ออัปเดตโปรแกรม</div>
+        )}
+        {sheet.mode === 'routine' && (
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
             {lib.map(n => {
               const on = sheet.picks.includes(n);
@@ -70,7 +73,7 @@ export function CustomSheet({ t, sheet }: { t: Tracker; sheet: Sheet }) {
           </div>
         )}
         {sheet.err && <div style={{ fontSize: 13, color: 'var(--down)' }}>{sheet.err}</div>}
-        <button type="submit" className="btn-primary">{sheet.mode === 'routine' ? `บันทึก Routine · ${sheet.picks.length} ท่า` : 'เพิ่ม'}</button>
+        <button type="submit" className="btn-primary">{sheet.mode === 'routine' ? `บันทึกโปรแกรม · ${sheet.picks.length} ท่า` : 'เพิ่ม'}</button>
       </form>
     </div>
   );

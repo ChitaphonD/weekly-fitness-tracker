@@ -23,7 +23,9 @@ export const LIB: Record<string, LibEntry> = {
   'Barbell Row': { kg: [55, 57.5, 57.5, 60, 60, 62.5, 62.5], reps: 8, sets: 3, inc: 2.5 }
 };
 
-export interface Template { id: string; name: string; ex: string[] }
+export interface TplSet { kg: string; reps: string }
+/** `sets` is saved for routines made from a logged session, so applying them restores kg/reps per set. */
+export interface Template { id: string; name: string; ex: string[]; sets?: Record<string, TplSet[]> }
 
 export const TPLS: Template[] = [
   { id: 'chest', name: 'Chest Day', ex: ['Bench Press', 'Incline DB Press', 'Cable Fly', 'Triceps Pushdown'] },

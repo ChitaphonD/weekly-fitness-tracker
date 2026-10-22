@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { CONFIG } from './config';
 import {
   CARDIO_TYPES, DEMO_CARDIO, LIB, METRICS, MLAB, TODAY_LABEL,
-  type CardioEntry, type LibEntry, type MetricDef, type Tab, type Template, type WeekSummary
+  type CardioEntry, type LibEntry, type MetricDef, type Tab, type Template, type TplSet, type WeekSummary
 } from './data';
 import { clone, fmt } from './format';
 
@@ -134,10 +134,20 @@ const incOf = (s: State, name: string) => {
 };
 
 /** New session entry, pre-filled with last week's weight + the weekly increment. */
-const mkEx = (s: State, name: string): SessionEx => {
+const mkEx = (s: State, name: string, saved?: TplSet[]): SessionEx => {
   const L = libOf(s.custom)[name], prev = prevOf(s, name), sugg = prev != null ? prev + incOf(s, name) : '';
+  if (saved?.length) return { name, prev, rpe: null, note: '', sets: saved.map(x => ({ kg: x.kg || String(sugg), reps: x.reps, done: false })) };
   return { name, prev, rpe: null, note: '', sets: Array.from({ length: L.sets }, () => ({ kg: String(sugg), reps: String(L.reps), done: false })) };
 };
+
+/** kg/reps of the session's exercises, for saving into a routine. */
+const setsOf = (session: SessionEx[], names: string[]) => Object.fromEntries(session
+  .filter(e => names.includes(e.name))
+  .map(e => [e.name, e.sets.map(x => ({ kg: x.kg, reps: x.reps }))]));
+
+/** True once the user has typed or ticked anything beyond the pre-filled values. */
+const touched = (s: State) => s.session.some(e => e.rpe != null || e.note || e.sets.some(x => x.done))
+  || JSON.stringify(s.session) !== JSON.stringify(s.session.map(e => mkEx(s, e.name, s.custom.tpls.find(t => t.id === s.tpl)?.sets?.[e.name])));
 
 // ---- hook ------------------------------------------------------------------
 
@@ -184,7 +194,12 @@ export function useTracker() {
       }),
 
       addExercise: (name: string) => set(st => ({ session: [...st.session, mkEx(st, name)], showPicker: false })),
-      applyTemplate: (t: Template) => set(st => ({ tpl: t.id, session: t.ex.map(n => mkEx(st, n)), showPicker: false })),
+      applyTemplate: (t: Template) => {
+        const st = ref.current;
+        if (st.tpl === t.id) return;
+        if (st.session.length && touched(st) && !window.confirm(`แทนที่ท่าที่กรอกไว้ด้วย “${t.name}”?`)) return;
+        set({ tpl: t.id, session: t.ex.map(n => mkEx(st, n, t.sets?.[n])), showPicker: false });
+      },
       removeExercise: (i: number) => set(st => ({ session: st.session.filter((_, j) => j !== i) })),
 
       saveSession: () => update(st => {
@@ -200,7 +215,16 @@ export function useTracker() {
         if (!done) { showToast('ติ๊ก ✓ เซ็ตที่ทำเสร็จก่อนบันทึก'); return st; }
         const first = st.session.find(e => e.sets.some(x => x.done))!.name;
         showToast(`บันทึกแล้ว · ${done} เซ็ต · ${fmt(vol)} kg`);
-        return { ...st, hist, session: [], tpl: null, strengthEx: first, cur: { w: st.cur.w + 1, vol: st.cur.vol + vol, min: st.cur.min + done * 3, kcal: st.cur.kcal + done * 9 } };
+        // A custom routine remembers what was just lifted, so next time starts from there.
+        let custom = st.custom;
+        const ti = custom.tpls.findIndex(t => t.id === st.tpl);
+        if (ti >= 0) {
+          custom = clone(custom);
+          const t = custom.tpls[ti];
+          t.sets = { ...t.sets, ...setsOf(st.session, t.ex) };
+          persistCustom(custom);
+        }
+        return { ...st, hist, custom, session: [], tpl: null, strengthEx: first, cur: { w: st.cur.w + 1, vol: st.cur.vol + vol, min: st.cur.min + done * 3, kcal: st.cur.kcal + done * 9 } };
       }),
 
       saveCardio: () => update(st => {
@@ -226,7 +250,7 @@ export function useTracker() {
         return { ...st, metrics: m, checked: true };
       }),
 
-      openSheet: (mode: SheetMode) => set({ sheet: { mode, name: '', unit: 'cm', dir: -1, sets: '3', reps: '10', inc: '2.5', start: '', picks: [], err: '' } }),
+      openSheet: (mode: SheetMode, init: Partial<Sheet> = {}) => set({ sheet: { mode, name: '', unit: 'cm', dir: -1, sets: '3', reps: '10', inc: '2.5', start: '', picks: [], err: '', ...init } }),
 
       submitSheet: () => update(st => {
         const sh = st.sheet; if (!sh) return st;
@@ -241,8 +265,14 @@ export function useTracker() {
           if (st.tab === 'log') next = { ...next, session: [...next.session, mkEx(next, name)], showPicker: false };
         } else if (sh.mode === 'routine') {
           if (!sh.picks.length) return err('เลือกอย่างน้อย 1 ท่า');
-          c.tpls.push({ id: 'c' + Date.now(), name, ex: sh.picks });
-          next = { ...st, custom: c, sheet: null };
+          // Same name replaces the routine, so a client's program can be updated in place.
+          const old = c.tpls.find(t => t.name === name);
+          const tpl: Template = { id: old?.id ?? 'c' + Date.now(), name, ex: sh.picks, sets: setsOf(st.session, sh.picks) };
+          c.tpls = old ? c.tpls.map(t => t === old ? tpl : t) : [...c.tpls, tpl];
+          next = { ...st, custom: c, sheet: null, tpl: st.session.some(e => sh.picks.includes(e.name)) ? tpl.id : st.tpl };
+          persistCustom(c);
+          showToast(old ? `อัปเดตโปรแกรม “${name}” แล้ว` : `บันทึกโปรแกรม “${name}” แล้ว`);
+          return next;
         } else if (sh.mode === 'metric') {
           if (mlabOf(st.custom).some(m => m[1] === name)) return err('มีสัดส่วนนี้อยู่แล้ว');
           c.metrics.push(['c' + Date.now(), name, sh.unit, sh.dir]);
@@ -261,12 +291,13 @@ export function useTracker() {
         const c = clone(st.custom);
         if (kind === 'ex') { delete c.ex[key]; c.tpls.forEach(t => { t.ex = t.ex.filter(n => n !== key); }); c.tpls = c.tpls.filter(t => t.ex.length); }
         if (kind === 'tpl') c.tpls = c.tpls.filter(t => t.id !== key);
+        if (kind === 'ex') c.tpls.forEach(t => { if (t.sets) delete t.sets[key]; });
         if (kind === 'metric') c.metrics = c.metrics.filter(m => m[0] !== key);
         if (kind === 'cardio') c.cardio = c.cardio.filter(x => x !== key);
         persistCustom(c);
         const hist = { ...st.hist }; if (kind === 'ex') delete hist[key];
         return {
-          ...st, custom: c, hist, session: kind === 'ex' ? st.session.filter(e => e.name !== key) : st.session,
+          ...st, custom: c, hist, tpl: kind === 'tpl' && st.tpl === key ? null : st.tpl, session: kind === 'ex' ? st.session.filter(e => e.name !== key) : st.session,
           metricKey: st.metricKey === key ? 'weight' : st.metricKey, strengthEx: st.strengthEx === key ? 'Bench Press' : st.strengthEx,
           cardio: kind === 'cardio' && st.cardio.type === key ? { ...st.cardio, type: 'วิ่ง' } : st.cardio
         };
