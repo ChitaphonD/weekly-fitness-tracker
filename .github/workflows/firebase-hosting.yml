@@ -4,27 +4,60 @@ on:
   push:
     branches: [main]
   pull_request:
+  workflow_dispatch:
 
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
+    # Fork PRs can't read secrets, so skip them.
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     defaults:
       run:
         working-directory: app
+    env:
+      PROJECT_ID: ${{ vars.FIREBASE_PROJECT_ID || 'weekly-fitness-tracker-54402' }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: 22
           cache: npm
           cache-dependency-path: app/package-lock.json
       - run: npm ci
       - run: npm run build
-      # Pull requests get a temporary preview URL; pushes to main go live.
-      - uses: FirebaseExtended/action-hosting-deploy@v0
-        with:
-          repoToken: ${{ secrets.GITHUB_TOKEN }}
-          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
-          projectId: ${{ vars.FIREBASE_PROJECT_ID }}
-          entryPoint: app
-          channelId: ${{ github.event_name == 'push' && 'live' || '' }}
+
+      # Validate the service account without printing it; problems show up as annotations.
+      - name: Check deploy credentials
+        env:
+          SA: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: |
+          if [ -z "$SA" ]; then echo "::error::Secret FIREBASE_SERVICE_ACCOUNT is missing or empty"; exit 1; fi
+          printf '%s' "$SA" > "$RUNNER_TEMP/sa.json"
+          if ! node -e 'JSON.parse(require("fs").readFileSync(process.argv[1], "utf8"))' "$RUNNER_TEMP/sa.json"; then
+            echo "::error::FIREBASE_SERVICE_ACCOUNT is not valid JSON - paste the whole key file, from { to }"; exit 1
+          fi
+          KEY_PROJECT=$(node -p 'JSON.parse(require("fs").readFileSync(process.argv[1], "utf8")).project_id' "$RUNNER_TEMP/sa.json")
+          if [ "$KEY_PROJECT" != "$PROJECT_ID" ]; then
+            echo "::error::Key is for project '$KEY_PROJECT' but deploying to '$PROJECT_ID'"; exit 1
+          fi
+          echo "::notice::Credentials OK for $PROJECT_ID"
+
+      # main goes live; pull requests get a 7-day preview channel.
+      - name: Deploy
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ runner.temp }}/sa.json
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            CMD="hosting:channel:deploy pr-${{ github.event.number }} --expires 7d"
+          else
+            CMD="deploy --only hosting"
+          fi
+          set -o pipefail
+          if ! npx --yes firebase-tools@13 $CMD --project "$PROJECT_ID" --non-interactive 2>&1 | tee "$RUNNER_TEMP/deploy.log"; then
+            echo "::error title=Firebase deploy failed::$(grep -iE 'error|denied|permission|not found' "$RUNNER_TEMP/deploy.log" | tail -5 | tr '\n' ' ' | cut -c1-900)"
+            exit 1
+          fi
+          echo "::notice::$(grep -E 'Hosting URL|Channel URL' "$RUNNER_TEMP/deploy.log" | tail -1)"
+
+      - if: always()
+        run: rm -f "$RUNNER_TEMP/sa.json"
