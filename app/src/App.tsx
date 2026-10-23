@@ -42,7 +42,7 @@ export function Root() {
 
 const Frame = ({ theme, children }: { theme: string; children: ReactNode }) => (
   <div className="page" data-theme={theme}>
-    <div className="page-head"><span>Weekly Progress Tracker</span></div>
+    <div className="page-head"><span style={{ display: 'flex', alignItems: 'center', gap: 8 }}><img src="/favicon.png" alt="" width={20} height={20} />Weekly Progress Tracker</span></div>
     <div className="device">{children}</div>
   </div>
 );

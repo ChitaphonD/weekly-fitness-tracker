@@ -50,8 +50,8 @@ export function LoginScreen() {
 
   return (
     <form className="stack" onSubmit={submit} style={{ paddingTop: 24 }}>
+      <img src="/logo.webp" alt="Weekly Fitness Tracker" width={128} height={128} style={{ alignSelf: 'center', borderRadius: 24 }} />
       <div>
-        <div style={{ font: '500 11px var(--mono)', color: 'var(--accent)', letterSpacing: '.06em' }}>WEEKLY PROGRESS TRACKER</div>
         <div className="h1">{mode === 'in' ? 'เข้าสู่ระบบ' : 'สมัครสมาชิก'}</div>
         <div style={{ fontSize: 14, lineHeight: 1.6, color: 'var(--mute)', marginTop: 6 }}>ข้อมูลการฝึกจะถูกเก็บในบัญชีของคุณ ใช้ต่อได้ทุกเครื่อง</div>
       </div>

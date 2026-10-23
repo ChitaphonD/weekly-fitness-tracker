@@ -89,11 +89,14 @@ export function Dashboard({ t }: { t: Tracker }) {
   return (
     <div className="stack">
       <div className="row-between" style={{ alignItems: 'flex-end' }}>
-        <div>
-          <button className="week-pill" onClick={() => set({ weekPopup: true, weekPick: s.week })}>
-            {'WEEK ' + String(N).padStart(2, '0')} · {WEEK_RANGE_LABEL} <span style={{ color: 'var(--accent)' }}>▾</span>
-          </button>
-          <div className="h1">ภาพรวมสัปดาห์นี้</div>
+        <div style={{ display: 'flex', alignItems: 'flex-end', gap: 12 }}>
+          <img src="/icon-192.png" alt="" width={48} height={48} style={{ borderRadius: 12, flexShrink: 0 }} />
+          <div>
+            <button className="week-pill" onClick={() => set({ weekPopup: true, weekPick: s.week })}>
+              {'WEEK ' + String(N).padStart(2, '0')} · {WEEK_RANGE_LABEL} <span style={{ color: 'var(--accent)' }}>▾</span>
+            </button>
+            <div className="h1">ภาพรวมสัปดาห์นี้</div>
+          </div>
         </div>
         <button className="theme-btn" onClick={() => set({ theme: s.theme === 'dark' ? 'light' : 'dark' })}>{s.theme === 'dark' ? 'DARK' : 'LIGHT'}</button>
       </div>
